@@ -104,6 +104,39 @@ final class LexerTests: XCTestCase {
         ])
     }
     
+    func testComments() {
+        given(input: """
+            # this is a comment
+
+            Feature: A
+            
+            # another comment
+            Scenario: Hello
+                Given this
+            # a step comment
+            """)
+        whenLexing()
+        thenTokens(are: [
+            Token.newLine,
+            Token.newLine,
+            Token.scenarioKey(.feature),
+            Token.whitespaces(count: 1),
+            Token.word(value: "A"),
+            Token.newLine,
+            Token.newLine,
+            Token.newLine,
+            Token.scenarioKey(.scenario),
+            Token.whitespaces(count: 1),
+            Token.word(value: "Hello"),
+            Token.newLine,
+            Token.stepKeyword(.given),
+            Token.whitespaces(count: 1),
+            Token.word(value: "this"),
+            Token.newLine,
+            Token.EOF
+        ])
+    }
+    
     func testDataTable() {
         given(input: """
             Given this table:

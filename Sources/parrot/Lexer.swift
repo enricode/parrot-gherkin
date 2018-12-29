@@ -40,12 +40,12 @@ class Lexer {
         currentChar = text[position]
     }
     
-    private func advance(until char: Character) throws {
+    private func advance(until char: Character, orEOF: Bool = false) throws {
         while let current = currentChar, current != char {
             advance()
         }
         
-        if position == text.endIndex && currentChar != char {
+        if position == text.endIndex && currentChar != char && !orEOF {
             throw LexerExceptions.cannotAdvanceUntilNotExistentChar(char: char)
         }
     }
@@ -121,7 +121,7 @@ class Lexer {
         return try peek(until: " ")
     }
     
-    private func getNextToken() throws -> Token {
+    func getNextToken() throws -> Token {
         while let char = currentChar {
             
             if char.isSpace {
@@ -139,6 +139,16 @@ class Lexer {
                     let skipped = skippedWhitespaces
                     skippedWhitespaces = 0
                     return Token.whitespaces(count: skipped)
+                }
+            }
+            
+            if char.isCommentChar {
+                try advance(until: "\n", orEOF: true)
+                if hasStillCharAhead {
+                    advance()
+                    return Token.newLine
+                } else {
+                    return Token.EOF
                 }
             }
             
@@ -200,6 +210,10 @@ class Lexer {
     }
     
     func parse() throws -> [Token] {
+        let lastPosition = position
+        
+        position = text.startIndex
+        
         var tokens: [Token] = []
         
         while true {
@@ -210,6 +224,8 @@ class Lexer {
                 break
             }
         }
+        
+        position = lastPosition
         
         return tokens
     }

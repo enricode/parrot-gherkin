@@ -30,6 +30,10 @@ extension Character {
         return self == "|"
     }
     
+    var isCommentChar: Bool {
+        return self == "#"
+    }
+    
     var isExampleParameterOpen: Bool {
         return self == "<"
     }
