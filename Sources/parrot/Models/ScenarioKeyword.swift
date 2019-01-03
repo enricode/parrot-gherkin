@@ -15,4 +15,12 @@ enum ScenarioKey: String, Keyword {
     case outline = "Outline:"
     case template = "Template:"
     case background = "Background:"
+    
+    var isScenarioKey: Bool {
+        return self == .scenario || self == .example
+    }
+    
+    var isScenarioOutlineKey: Bool {
+        return self == .outline || self == .template
+    }
 }

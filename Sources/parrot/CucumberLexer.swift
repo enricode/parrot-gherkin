@@ -7,12 +7,12 @@
 
 import Foundation
 
-enum LexerExceptions: Error {
+enum LexerExceptions: ParrotError {
     case cannotPeekUntilNotExistentChar(char: Character)
-    case cannotAdvanceUntilNotExistentChar(char: Character)
+    case cannotAdvanceUntilNotExistentChar(char: Character)    
 }
 
-class Lexer {
+class CucumberLexer: Lexer {
     
     let text: String
     private(set) var position: String.Index
@@ -193,6 +193,17 @@ class Lexer {
             
             if char.isntSpace {
                 let result = try word()
+                
+                if result == "Scenario", let outlineCandidate = try peek(until: ":") {
+                    let outline = outlineCandidate == "Outline"
+                    let template = outlineCandidate == "Template"
+                    
+                    if outline || template {
+                        try advance(until: ":")
+                        advance()
+                        return Token.scenarioKey(outline ? .outline : .template)
+                    }
+                }
                 
                 if let scenarioKey = ScenarioKey(rawValue: result) {
                     return Token.scenarioKey(scenarioKey)

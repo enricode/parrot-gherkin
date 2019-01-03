@@ -20,4 +20,25 @@ enum Token: Equatable {
     case word(value: String)
     
     case EOF
+    
+    var representation: String {
+        switch self {
+        case .colon: return ":"
+        case .exampleParameter(let value): return "<\(value)>"
+        case .newLine: return "\n"
+        case .parameter(let value): return "\"\(value)\""
+        case .pipe: return "|"
+        case .scenarioKey(let key):
+            switch key {
+            case .outline: return "Scenario Outline:"
+            case .template: return "Scenario Template:"
+            default: return key.rawValue
+            }
+        case .stepKeyword(let key): return key.rawValue
+        case .tag(let value): return "@" + value
+        case .whitespaces(let count): return String(repeatElement(" ", count: count))
+        case .word(let value): return value
+        case .EOF: return ""
+        }
+    }
 }

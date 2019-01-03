@@ -3,7 +3,7 @@ import XCTest
 
 final class LexerTests: XCTestCase {
     
-    var lexer: Lexer!
+    var lexer: CucumberLexer!
     var tokens: [Token]!
     
     override func setUp() {
@@ -79,8 +79,6 @@ final class LexerTests: XCTestCase {
             """)
         whenLexing()
         thenTokens(are: [
-            Token.word(value: "Scenario"),
-            Token.whitespaces(count: 1),
             Token.scenarioKey(.outline),
             Token.whitespaces(count: 1),
             Token.word(value: "Title"),
@@ -100,6 +98,33 @@ final class LexerTests: XCTestCase {
             Token.word(value: "initial"),
             Token.whitespaces(count: 1),
             Token.word(value: "condition"),
+            Token.EOF
+        ])
+    }
+    
+    func testScenarioOutline() {
+        given(input: "Scenario Outline:")
+        whenLexing()
+        thenTokens(are: [
+            Token.scenarioKey(.outline),
+            Token.EOF
+        ])
+    }
+    
+    func testScenarioTemplate() {
+        given(input: "Scenario Template:")
+        whenLexing()
+        thenTokens(are: [
+            Token.scenarioKey(.template),
+            Token.EOF
+        ])
+    }
+
+    func testExample() {
+        given(input: "Example:")
+        whenLexing()
+        thenTokens(are: [
+            Token.scenarioKey(.example),
             Token.EOF
         ])
     }
@@ -200,7 +225,7 @@ final class LexerTests: XCTestCase {
     }
     
     private func given(input: String) {
-        lexer = Lexer(feature: input)
+        lexer = CucumberLexer(feature: input)
     }
     
     private func whenLexing() {
@@ -221,6 +246,7 @@ final class LexerTests: XCTestCase {
         ("testTags", testTags),
         ("testGivenWhenThen", testGivenWhenThen),
         ("testTitleAndDescription", testTitleAndDescription),
+        ("testComments", testComments),
         ("testDataTable", testDataTable),
         ("testExampleParameter", testExampleParameter),
         ("testParameter", testParameter)
