@@ -37,6 +37,38 @@ final class LexerTests: XCTestCase {
         ])
     }
     
+    func testSplitKeywordsWithoutWhitespaces() {
+        given(input: "Feature:Hello")
+        whenLexing()
+        thenTokens(are: [Token.scenarioKey(.feature), Token.word(value: "Hello"), Token.EOF])
+    }
+    
+    func testAdvanceWithFinalColon() {
+        given(input: "Feature:")
+        whenLexing()
+        thenTokens(are: [Token.scenarioKey(.feature), Token.EOF])
+    }
+    
+    func testDocString() {
+        given(input: """
+            Given something_with_doc_string
+              \"\"\"
+              with first line indented like this
+                it should preserve two spaces
+                 and now three
+              \"\"\"
+            """)
+        whenLexing()
+        thenTokens(are: [
+            Token.stepKeyword(.given),
+            Token.whitespaces(count: 1),
+            Token.word(value: "something_with_doc_string"),
+            Token.newLine,
+            Token.docString(value: "with first line indented like this\n  it should preserve two spaces\n   and now three"),
+            Token.EOF
+        ])
+    }
+    
     func testTags() {
         given(input: "@tag1 @tag2\nFeature: Hello")
         whenLexing()
@@ -175,7 +207,8 @@ final class LexerTests: XCTestCase {
             Token.whitespaces(count: 1),
             Token.word(value: "this"),
             Token.whitespaces(count: 1),
-            Token.word(value: "table:"),
+            Token.word(value: "table"),
+            Token.colon,
             Token.newLine,
             
             Token.pipe,
@@ -224,6 +257,17 @@ final class LexerTests: XCTestCase {
         ])
     }
     
+    func testExampleParameterInParameter() {
+        given(input: "Given \"<param>\"")
+        whenLexing()
+        thenTokens(are: [
+            Token.stepKeyword(.given),
+            Token.whitespaces(count: 1),
+            Token.parameter(value: "<param>"),
+            Token.EOF
+        ])
+    }
+    
     private func given(input: String) {
         lexer = CucumberLexer(feature: input)
     }
@@ -237,6 +281,13 @@ final class LexerTests: XCTestCase {
     }
     
     private func thenTokens(are expectedTokens: [Token]) {
+        if tokens != expectedTokens {
+            print("   EXPECTED".padded + "    ACTUAL".padded)
+            for (index, token) in zip(expectedTokens, tokens).enumerated() {
+                print("\(index): \(token.0.padded) \(token.1.padded)")
+            }
+        }
+        
         XCTAssertEqual(tokens, expectedTokens)
     }
     

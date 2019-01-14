@@ -11,7 +11,7 @@ enum DataTableInitializationException: String, ParrotError {
     case dataTableWithoutValues
 }
 
-struct DataTable: AST {
+struct DataTable: AST, Equatable {
     let values: [[String]]
     
     init(values: [[String]]) throws {

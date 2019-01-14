@@ -13,7 +13,7 @@ enum ExamplesTableInitializationException: String, ParrotError {
     case unmatchedValuesCountWithColumns
 }
 
-struct ExamplesTable {
+struct ExamplesTable: Equatable {
     let title: String
     let columns: [String]
     let dataTable: DataTable

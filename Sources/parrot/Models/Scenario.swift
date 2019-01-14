@@ -14,12 +14,12 @@ enum ScenarioInitializationException: String, ParrotError {
     case noStepsFound
 }
 
-enum Outline {
+enum Outline: Equatable {
     case notOutline
     case outline(examples: ExamplesTable)
 }
 
-struct Scenario: AST {
+struct Scenario: AST, Equatable {
     let tags: [Tag]
     let title: String
     let description: String?

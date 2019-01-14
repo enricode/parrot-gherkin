@@ -9,7 +9,8 @@ import Foundation
 
 enum LexerExceptions: ParrotError {
     case cannotPeekUntilNotExistentChar(char: Character)
-    case cannotAdvanceUntilNotExistentChar(char: Character)    
+    case cannotAdvanceUntilNotExistentChar(char: Character)
+    case unexpectedEOFWhileParsingDocString(docString: String)
 }
 
 class CucumberLexer: Lexer {
@@ -31,8 +32,8 @@ class CucumberLexer: Lexer {
         return position != text.endIndex
     }
     
-    private func advance() {
-        position = text.index(after: position)
+    private func advance(positions: Int = 1) {
+        position = text.index(position, offsetBy: positions)
         guard position != text.endIndex else {
             currentChar = nil
             return
@@ -50,12 +51,30 @@ class CucumberLexer: Lexer {
         }
     }
     
-    private func peek() -> Character? {
-        let nextIndex = text.index(after: position)
-        guard nextIndex != text.endIndex else {
-            return nil
+    private func peek(count: Int) -> [Character] {
+        assert(count > 0, "Count should be > 0")
+        let offsets: [Int] = Array(0...(count-1))
+        
+        let chars = offsets.compactMap { offset -> Character? in
+            guard let nextIndex = text.index(position, offsetBy: offset + 1, limitedBy: text.endIndex) else {
+                return nil
+            }
+            guard nextIndex != text.endIndex else {
+                return nil
+            }
+            return text[nextIndex]
         }
-        return text[nextIndex]
+        
+        return chars
+    }
+    
+    private func peek(count: Int) -> String? {
+        return String(peek(count: count) as [Character])
+    }
+    
+    private func peek() -> Character? {
+        let char: [Character] = peek(count: 1)
+        return char.first
     }
     
     private func skipWhitespaces() -> Int {
@@ -81,7 +100,7 @@ class CucumberLexer: Lexer {
     func word() throws -> String {
         var result = ""
         
-        while let char = currentChar, !char.isSpace && !char.isNewLine {
+        while let char = currentChar, !char.isSpace && !char.isNewLine && !char.isColon {
             result.append(char)
             advance()
         }
@@ -106,7 +125,7 @@ class CucumberLexer: Lexer {
             nextIndex = text.index(after: nextIndex)
         }
         
-        if nextIndex == text.endIndex && text[text.endIndex] != char {
+        if nextIndex == text.endIndex && text.last != char {
             throw LexerExceptions.cannotPeekUntilNotExistentChar(char: char)
         }
         
@@ -119,6 +138,68 @@ class CucumberLexer: Lexer {
     
     private func peekWord() throws -> String? {
         return try peek(until: " ")
+    }
+    
+    private func extractDocStringToken() throws -> Token {
+        var result = ""
+        
+        while true {
+            guard let current = currentChar else {
+                throw LexerExceptions.unexpectedEOFWhileParsingDocString(docString: result)
+            }
+            
+            if let peeked: String = peek(count: 2), "\(current)\(peeked)".isDocString {
+                advance(positions: 3)
+                break
+            }
+            
+            result.append(current)
+            advance()
+        }
+        
+        var lines = result.split(separator: "\n").map(String.init)
+        
+        guard var firstLine = lines.first, let lastLine = lines.last, lastLine != firstLine else {
+            return Token.docString(value: result)
+        }
+        
+        if firstLine.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines = Array(lines.dropFirst())
+            firstLine = lines[0]
+        }
+        if lastLine.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines = Array(lines.dropLast())
+        }
+
+        if let leadingWhitespaceCount = firstLine.index(where: { $0 != " " }) {
+            let paddedLines: [Substring] = lines.map { line in
+                guard let index = line.index(where: { $0 != " " }) else {
+                    return line[line.startIndex...line.endIndex]
+                }
+                
+                if index <= leadingWhitespaceCount {
+                    return line.suffix(from: index)
+                } else {
+                    return line.suffix(from: leadingWhitespaceCount)
+                }
+            }
+            let reconstructedDocString = paddedLines.map({ String($0) }).joined(separator: "\n")
+            return Token.docString(value: reconstructedDocString)
+        } else {
+            return Token.docString(value: result)
+        }
+    }
+    
+    private func findKeyword(in word: String) -> Keyword? {
+        if let scenarioKey = ScenarioKey(rawValue: word) {
+            return scenarioKey
+        }
+        
+        if let stepKeyword = StepKeyword(rawValue: word) {
+            return stepKeyword
+        }
+        
+        return nil
     }
     
     func getNextToken() throws -> Token {
@@ -175,6 +256,11 @@ class CucumberLexer: Lexer {
             }
             
             if (char.isParameterOpen || char.isExampleParameterOpen) && hasStillCharAhead {
+                if let peeked: String = peek(count: 2), "\(char)\(peeked)".isDocString {
+                    advance(positions: 3)
+                    return try extractDocStringToken()
+                }
+                
                 do {
                     if char.isExampleParameterOpen, let parameter = try peek(until: ">") {
                         try advance(until: ">")
@@ -200,15 +286,18 @@ class CucumberLexer: Lexer {
                     
                     if outline || template {
                         try advance(until: ":")
-                        advance()
+                        advance() // skip ':'
                         return Token.scenarioKey(outline ? .outline : .template)
                     }
                 }
-                
-                if let scenarioKey = ScenarioKey(rawValue: result) {
-                    return Token.scenarioKey(scenarioKey)
+
+                if let colon = currentChar, colon == ":" {
+                    if let scenarioKey = ScenarioKey(rawValue: result + String(colon)) {
+                        advance()
+                        return Token.scenarioKey(scenarioKey)
+                    }
                 }
-                
+                    
                 if let stepKeyword = StepKeyword(rawValue: result) {
                     return Token.stepKeyword(stepKeyword)
                 }

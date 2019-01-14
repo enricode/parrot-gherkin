@@ -27,6 +27,7 @@ class CucumberInterpreter: Interpreter {
     }
     
     func parse() throws -> AST {
+        try eat()
         return try feature()
     }
     
@@ -37,16 +38,23 @@ class CucumberInterpreter: Interpreter {
         if currentToken == .newLine {
             fileLine += 1
         }
-        
+
         return currentToken
     }
     
+    /// Extract all tokens until "newline" or "EOF".
+    /// Any newline is then eat.
     private func sentence() throws -> String? {
         var result = ""
         while currentToken != .newLine && currentToken != .EOF {
             result.append(currentToken.representation)
             try eat()
         }
+        
+        if currentToken == .newLine {
+            try eat()
+        }
+
         return result == "" ? nil : result
     }
     
@@ -54,13 +62,10 @@ class CucumberInterpreter: Interpreter {
     private func feature() throws -> Feature {
         let tagList = try tags()
         
-        if !tagList.isEmpty && currentToken != .newLine {
-            throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: Token.newLine.descriptionValue)
-        }
-        
-        guard try eat() == Token.scenarioKey(.feature) else {
+        guard currentToken == Token.scenarioKey(.feature) else {
             throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: ScenarioKey.feature.descriptionValue)
         }
+        try eat() // Feature:
         
         let titleDesc = try titleDescription(factor: ScenarioKey.feature)
         let scenarioList = try scenarios()
@@ -79,7 +84,6 @@ class CucumberInterpreter: Interpreter {
         guard let title = try sentence() else {
             throw InterpreterException.titleExpectedNothingFound
         }
-        try eat()
         
         if factor is ScenarioKey, currentToken.isScenarioKeyword {
             return (title: title, description: nil)
@@ -93,15 +97,26 @@ class CucumberInterpreter: Interpreter {
             throw InterpreterException.unexpectedTitleDescriptionFactor
         }
         
-        return (title: title, description: try sentence())
+        if currentToken.isStepKeyword {
+            return (title: title, description: nil)
+        } else {
+            return (title: title, description: try sentence())
+        }
     }
     
     // @tag*
     private func tags() throws -> [Tag] {
         var tags: [Tag] = []
         
-        while case .tag(let tagValue) = currentToken {
-            tags.append(Tag(tag: tagValue))
+        while true {
+            switch currentToken {
+            case .tag(let tagValue):
+                tags.append(Tag(tag: tagValue))
+            case .whitespaces, .newLine:
+                break
+            default:
+                return tags
+            }
             try eat()
         }
         
@@ -114,6 +129,14 @@ class CucumberInterpreter: Interpreter {
         
         while let scenario = try scenario() {
             scenarioList.append(scenario)
+            
+            while currentToken.isWhitespaceOrNewLine {
+                try eat()
+            }
+            
+            if currentToken == .EOF {
+                break
+            }
         }
         
         return scenarioList
@@ -128,6 +151,7 @@ class CucumberInterpreter: Interpreter {
         guard case .scenarioKey(let scenarioKey) = currentToken else {
             throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: "Scenario:, Example:, Scenario Outline:, Scenario Template:")
         }
+        try eat() // scenario key
         
         // title_description
         let titleDesc = try titleDescription(factor: ScenarioKey.scenario)
@@ -186,17 +210,80 @@ class CucumberInterpreter: Interpreter {
         
         while currentToken == .pipe {
             rows.append(try wordsBetweenPipes())
-            
-            if currentToken != .EOF {
-                try eat() // eat newline
-            }
         }
         
         return try DataTable(values: rows)
     }
     
     private func steps() throws -> [Step] {
-        return []
+        var stepList: [Step] = []
+        while currentToken.isStepKeyword {
+            stepList.append(try step())
+        }
+        return stepList
+    }
+    
+    // STEPKEYWORD -> step_text -> (newline -> data_table | doc_string)* ->
+    private func step() throws -> Step {
+        // STEPKEYWORD
+        guard case .stepKeyword(let keyword) = currentToken else {
+            throw InterpreterException.unexpectedTerm(
+                term: currentToken.descriptionValue,
+                expected: Token.stepKeyword(.given).descriptionValue
+            )
+        }
+        
+        try eat() // keyword
+        try eat() // whitespace
+        
+        // step_text
+        let text = try stepText()
+        
+        // data_table
+        var table: DataTable? = nil
+        if currentToken == .newLine {
+            try eat() // newline
+            
+            if currentToken == .pipe {
+                table = try dataTable()
+            }
+        }
+        
+        return try Step(
+            keyword: keyword.stepKeyword,
+            text: text.content,
+            parameters: text.parameters,
+            dataTable: table
+        )
+    }
+    
+    private func stepText() throws -> (content: String, parameters: [Step.Parameter]) {
+        var stepContent = ""
+        var parameters: [Step.Parameter] = []
+        
+        while currentToken != .newLine && currentToken != .EOF {
+            switch currentToken {
+            case .exampleParameter(let value), .parameter(let value):
+                let previousIndex = stepContent.endIndex
+                let representation = currentToken.representation
+                stepContent.append(representation)
+                
+                let closedRange = stepContent.index(after: previousIndex)...stepContent.index(before: stepContent.endIndex)
+                let parameter = Step.Parameter(
+                    kind: currentToken.isParameter ? .parameter : .example,
+                    value: value,
+                    position: closedRange
+                )
+                
+                parameters.append(parameter)
+            default:
+                stepContent.append(currentToken.representation)
+            }
+            
+            try eat()
+        }
+        
+        return (stepContent, parameters)
     }
     
     private func columnsTitles() throws -> [String] {
@@ -222,6 +309,8 @@ class CucumberInterpreter: Interpreter {
             }
             try eat()
         }
+        
+        try eat() // newLine
         
         return words
     }
@@ -295,9 +384,24 @@ extension Token {
         }
     }
     
+    var isParameter: Bool {
+        if case .parameter(_) = self {
+            return true
+        }
+        return false
+    }
+    
+    var isExampleParameter: Bool {
+        if case .exampleParameter(_) = self {
+            return true
+        }
+        return false
+    }
+    
     var descriptionValue: String {
         switch self {
         case .colon: return ":"
+        case .docString(let value): return "\"\"\"\(value)\"\"\""
         case .exampleParameter: return "<parameter>"
         case .newLine: return "newline"
         case .parameter: return "\"parameter\""
@@ -325,6 +429,16 @@ extension StepKeyword {
     
     fileprivate var descriptionValue: String {
         return rawValue
+    }
+    
+    fileprivate var stepKeyword: Step.Keyword {
+        switch self {
+        case .and: return .and
+        case .but: return .but
+        case .given: return .given
+        case .then: return .then
+        case .when: return .when
+        }
     }
     
 }

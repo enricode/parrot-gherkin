@@ -7,6 +7,6 @@
 
 import Foundation
 
-struct Tag: AST {
+struct Tag: AST, Equatable {
     let tag: String
 }

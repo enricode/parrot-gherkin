@@ -13,7 +13,7 @@ enum FeatureInitializationException: String, ParrotError {
     case emptyDescription
 }
 
-struct Feature: AST {
+struct Feature: AST, Equatable {
     let tags: [Tag]
     let title: String
     let description: String?

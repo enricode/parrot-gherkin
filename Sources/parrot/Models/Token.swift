@@ -9,6 +9,7 @@ import Foundation
 
 enum Token: Equatable {
     case colon
+    case docString(value: String)
     case exampleParameter(value: String)
     case newLine
     case parameter(value: String)
@@ -24,6 +25,7 @@ enum Token: Equatable {
     var representation: String {
         switch self {
         case .colon: return ":"
+        case .docString(let value): return "\"\"\"\n\(value)\n\"\"\""
         case .exampleParameter(let value): return "<\(value)>"
         case .newLine: return "\n"
         case .parameter(let value): return "\"\(value)\""
