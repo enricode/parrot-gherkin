@@ -1,21 +1,16 @@
-//
-//  Character+Extensions.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 28/12/18.
-//
-
 import Foundation
 
 extension Character {
     var isSpace: Bool {
-        //TODO: put more whitespace characters here
-        return self == " "
+        return self == "\u{20}" || isTab
+    }
+    
+    var isTab: Bool {
+        return self == "\u{9}"
     }
     
     var isNewLine: Bool {
-        //TODO: windows return
-        return self == "\n" || self == "\r"
+        return self == "\u{A}" || self == "\u{B}" || self == "\u{C}" || self == "\u{D}"
     }
     
     var isTagChar: Bool {
@@ -34,19 +29,15 @@ extension Character {
         return self == "#"
     }
     
-    var isExampleParameterOpen: Bool {
-        return self == "<"
-    }
-    
-    var isExampleParameterClose: Bool {
-        return self == ">"
-    }
-    
-    var isParameterOpen: Bool {
-        return self == "\""
-    }
-    
-    var isntSpace: Bool {
+    var isNotSpace: Bool {
         return !isSpace && !isNewLine
     }
+}
+
+extension String.SubSequence {
+    
+    var newLinesCount: Int {
+        return filter({ $0.isNewLine }).count
+    }
+    
 }

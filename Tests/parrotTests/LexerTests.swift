@@ -10,14 +10,12 @@ final class LexerTests: XCTestCase {
         lexer = nil
     }
     
-    func testIgnoresWhitespaces() {
+    func testIgnoresHeadingAndTrailingWhitespaces() {
         given(input: "     Hello   World   ")
         whenLexing()
         thenTokens(are: [
-            Token.word(value: "Hello"),
-            Token.whitespaces(count: 3),
-            Token.word(value: "World"),
-            Token.EOF
+            Token(Expression(content: "Hello   World"), Location(column: 6, line: 1)),
+            Token(EOF(), Location(column: 22, line: 1))
         ])
     }
     
@@ -25,34 +23,36 @@ final class LexerTests: XCTestCase {
         given(input: "\n\nFeature: A\n  Given\n")
         whenLexing()
         thenTokens(are: [
-            Token.newLine,
-            Token.newLine,
-            Token.scenarioKey(.feature),
-            Token.whitespaces(count: 1),
-            Token.word(value: "A"),
-            Token.newLine,
-            Token.stepKeyword(.given),
-            Token.newLine,
-            Token.EOF
+            Token(PrimaryKeyword.feature, Location(column: 1, line: 3)),
+            Token(Expression(content: "A"), Location(column: 10, line: 3)),
+            Token(PrimaryKeyword.given, Location(column: 3, line: 4)),
+            Token(EOF(), Location(column: 3, line: 5))
         ])
     }
     
     func testSplitKeywordsWithoutWhitespaces() {
         given(input: "Feature:Hello")
         whenLexing()
-        thenTokens(are: [Token.scenarioKey(.feature), Token.word(value: "Hello"), Token.EOF])
+        thenTokens(are: [
+            Token(PrimaryKeyword.feature, Location(column: 1, line: 1)),
+            Token(Expression(content: "Hello"), Location(column: 9, line: 1)),
+            Token(EOF(), Location(column: 14, line: 1))
+        ])
     }
     
     func testAdvanceWithFinalColon() {
         given(input: "Feature:")
         whenLexing()
-        thenTokens(are: [Token.scenarioKey(.feature), Token.EOF])
+        thenTokens(are: [
+            Token(PrimaryKeyword.feature, Location(column: 1, line: 1)),
+            Token(EOF(), Location(column: 9, line: 1))
+        ])
     }
     
     func testDocString() {
         given(input: """
-            Given something_with_doc_string
-              \"\"\"
+            Given something with doc string
+              \"\"\"type
               with first line indented like this
                 it should preserve two spaces
                  and now three
@@ -60,12 +60,14 @@ final class LexerTests: XCTestCase {
             """)
         whenLexing()
         thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.word(value: "something_with_doc_string"),
-            Token.newLine,
-            Token.docString(value: "with first line indented like this\n  it should preserve two spaces\n   and now three"),
-            Token.EOF
+            Token(PrimaryKeyword.given, Location(column: 1, line: 1)),
+            Token(Expression(content: "something with doc string"), Location(column: 7, line: 1)),
+            Token(SecondaryKeyword.docStrings, Location(column: 3, line: 2)),
+            Token(Expression(content: "with first line indented like this"), Location(column: 3, line: 3)),
+            Token(Expression(content: "it should preserve two spaces"), Location(column: 5, line: 4)),
+            Token(Expression(content: "and now three"), Location(column: 5, line: 6)),
+            Token(SecondaryKeyword.docStrings, Location(column: 6, line: 3)),
+            Token(EOF(), Location(column: 9, line: 1))
         ])
     }
     
@@ -73,14 +75,11 @@ final class LexerTests: XCTestCase {
         given(input: "@tag1 @tag2\nFeature: Hello")
         whenLexing()
         thenTokens(are: [
-            Token.tag(value: "tag1"),
-            Token.whitespaces(count: 1),
-            Token.tag(value: "tag2"),
-            Token.newLine,
-            Token.scenarioKey(.feature),
-            Token.whitespaces(count: 1),
-            Token.word(value: "Hello"),
-            Token.EOF
+            Token(SecondaryKeyword.tag(value: "tag1"), Location(column: 1, line: 1)),
+            Token(SecondaryKeyword.tag(value: "tag2"), Location(column: 7, line: 1)),
+            Token(PrimaryKeyword.feature, Location(column: 1, line: 2)),
+            Token(Expression(content: "Hello"), Location(column: 10, line: 2)),
+            Token(EOF(), Location(column: 15, line: 2))
         ])
     }
     
@@ -88,18 +87,13 @@ final class LexerTests: XCTestCase {
         given(input: "Given hello\nWhen action\nThen happiness")
         whenLexing()
         thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.word(value: "hello"),
-            Token.newLine,
-            Token.stepKeyword(.when),
-            Token.whitespaces(count: 1),
-            Token.word(value: "action"),
-            Token.newLine,
-            Token.stepKeyword(.then),
-            Token.whitespaces(count: 1),
-            Token.word(value: "happiness"),
-            Token.EOF
+            Token(PrimaryKeyword.given, Location(column: 1, line: 1)),
+            Token(Expression(content: "hello"), Location(column: 7, line: 1)),
+            Token(PrimaryKeyword.when, Location(column: 1, line: 2)),
+            Token(Expression(content: "action"), Location(column: 6, line: 2)),
+            Token(PrimaryKeyword.then, Location(column: 1, line: 3)),
+            Token(Expression(content: "happiness"), Location(column: 6, line: 3)),
+            Token(EOF(), Location(column: 15, line: 3))
         ])
     }
     
@@ -111,26 +105,12 @@ final class LexerTests: XCTestCase {
             """)
         whenLexing()
         thenTokens(are: [
-            Token.scenarioKey(.outline),
-            Token.whitespaces(count: 1),
-            Token.word(value: "Title"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "of"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "scenario"),
-            Token.newLine,
-            Token.word(value: "Description"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "of"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "scenario"),
-            Token.newLine,
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.word(value: "initial"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "condition"),
-            Token.EOF
+            Token(PrimaryKeyword.scenarioOutline, Location(column: 1, line: 1)),
+            Token(Expression(content: "Title of scenario"), Location(column: 19, line: 1)),
+            Token(Expression(content: "Description of scenario"), Location(column: 19, line: 2)),
+            Token(PrimaryKeyword.given, Location(column: 5, line: 3)),
+            Token(Expression(content: "initial condition"), Location(column: 11, line: 3)),
+            Token(EOF(), Location(column: 28, line: 3))
         ])
     }
     
@@ -138,8 +118,8 @@ final class LexerTests: XCTestCase {
         given(input: "Scenario Outline:")
         whenLexing()
         thenTokens(are: [
-            Token.scenarioKey(.outline),
-            Token.EOF
+            Token(PrimaryKeyword.scenarioOutline, Location(column: 1, line: 1)),
+            Token(EOF(), Location(column: 18, line: 1))
         ])
     }
     
@@ -147,8 +127,8 @@ final class LexerTests: XCTestCase {
         given(input: "Scenario Template:")
         whenLexing()
         thenTokens(are: [
-            Token.scenarioKey(.template),
-            Token.EOF
+            Token(PrimaryKeyword.scenarioOutline, Location(column: 1, line: 1)),
+            Token(EOF(), Location(column: 19, line: 1))
         ])
     }
 
@@ -156,8 +136,8 @@ final class LexerTests: XCTestCase {
         given(input: "Example:")
         whenLexing()
         thenTokens(are: [
-            Token.scenarioKey(.example),
-            Token.EOF
+            Token(PrimaryKeyword.scenario, Location(column: 1, line: 1)),
+            Token(EOF(), Location(column: 9, line: 1))
         ])
     }
     
@@ -167,104 +147,53 @@ final class LexerTests: XCTestCase {
 
             Feature: A
             
-            # another comment
+            #another comment
             Scenario: Hello
                 Given this
             # a step comment
             """)
         whenLexing()
         thenTokens(are: [
-            Token.newLine,
-            Token.newLine,
-            Token.scenarioKey(.feature),
-            Token.whitespaces(count: 1),
-            Token.word(value: "A"),
-            Token.newLine,
-            Token.newLine,
-            Token.newLine,
-            Token.scenarioKey(.scenario),
-            Token.whitespaces(count: 1),
-            Token.word(value: "Hello"),
-            Token.newLine,
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.word(value: "this"),
-            Token.newLine,
-            Token.EOF
+            Token(SecondaryKeyword.comment, Location(column: 1, line: 1)),
+            Token(Expression(content: "this is a comment"), Location(column: 3, line: 1)),
+            Token(PrimaryKeyword.feature, Location(column: 1, line: 3)),
+            Token(Expression(content: "A"), Location(column: 10, line: 3)),
+            Token(SecondaryKeyword.comment, Location(column: 5, line: 1)),
+            Token(Expression(content: "another comment"), Location(column: 2, line: 5)),
+            Token(PrimaryKeyword.scenario, Location(column: 1, line: 6)),
+            Token(Expression(content: "Hello"), Location(column: 11, line: 6)),
+            Token(PrimaryKeyword.given, Location(column: 5, line: 7)),
+            Token(Expression(content: "this"), Location(column: 11, line: 7)),
+            Token(SecondaryKeyword.comment, Location(column: 1, line: 8)),
+            Token(Expression(content: "a step comment"), Location(column: 3, line: 8)),
+            Token(EOF(), Location(column: 17, line: 8))
         ])
     }
     
     func testDataTable() {
         given(input: """
             Given this table:
-                | title_of_column |
-                | data1           |
-                | data2           |
+                | title of column |
+                | data 1          |
+                | data 2          |
             """)
         whenLexing()
         thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.word(value: "this"),
-            Token.whitespaces(count: 1),
-            Token.word(value: "table"),
-            Token.colon,
-            Token.newLine,
+            Token(PrimaryKeyword.given, Location(column: 1, line: 1)),
+            Token(Expression(content: "this table:"), Location(column: 7, line: 1)),
+            Token(SecondaryKeyword.pipe, Location(column: 5, line: 2)),
+            Token(Expression(content: "title of column"), Location(column: 7, line: 2)),
+            Token(SecondaryKeyword.pipe, Location(column: 23, line: 2)),
             
-            Token.pipe,
-            Token.whitespaces(count: 1),
-            Token.word(value: "title_of_column"),
-            Token.whitespaces(count: 1),
-            Token.pipe,
-            Token.newLine,
+            Token(SecondaryKeyword.pipe, Location(column: 5, line: 3)),
+            Token(Expression(content: "data 1"), Location(column: 7, line: 3)),
+            Token(SecondaryKeyword.pipe, Location(column: 23, line: 3)),
             
-            Token.pipe,
-            Token.whitespaces(count: 1),
-            Token.word(value: "data1"),
-            Token.whitespaces(count: 11),
-            Token.pipe,
-            Token.newLine,
+            Token(SecondaryKeyword.pipe, Location(column: 5, line: 4)),
+            Token(Expression(content: "data 2"), Location(column: 7, line: 4)),
+            Token(SecondaryKeyword.pipe, Location(column: 23, line: 4)),
             
-            Token.pipe,
-            Token.whitespaces(count: 1),
-            Token.word(value: "data2"),
-            Token.whitespaces(count: 11),
-            Token.pipe,
-            
-            Token.EOF
-        ])
-    }
-    
-    func testExampleParameter() {
-        given(input: "Given <param>")
-        whenLexing()
-        thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.exampleParameter(value: "param"),
-            Token.EOF
-        ])
-    }
-    
-    func testParameter() {
-        given(input: "Given \"param\"")
-        whenLexing()
-        thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.parameter(value: "param"),
-            Token.EOF
-        ])
-    }
-    
-    func testExampleParameterInParameter() {
-        given(input: "Given \"<param>\"")
-        whenLexing()
-        thenTokens(are: [
-            Token.stepKeyword(.given),
-            Token.whitespaces(count: 1),
-            Token.parameter(value: "<param>"),
-            Token.EOF
+            Token(EOF(), Location(column: 24, line: 4))
         ])
     }
     
@@ -281,12 +210,12 @@ final class LexerTests: XCTestCase {
     }
     
     private func thenTokens(are expectedTokens: [Token]) {
-        if tokens != expectedTokens {
+        /*if tokens != expectedTokens {
             print("   EXPECTED".padded + "    ACTUAL".padded)
             for (index, token) in zip(expectedTokens, tokens).enumerated() {
                 print("\(index): \(token.0.padded) \(token.1.padded)")
             }
-        }
+        }*/
         
         XCTAssertEqual(tokens, expectedTokens)
     }
