@@ -1,10 +1,3 @@
-//
-//  ParrotError.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 02/01/19.
-//
-
 import Foundation
 
 protocol ParrotError: Error {

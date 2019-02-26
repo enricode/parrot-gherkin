@@ -13,7 +13,7 @@ extension Character {
         return self == "\u{A}" || self == "\u{B}" || self == "\u{C}" || self == "\u{D}"
     }
     
-    var isTagChar: Bool {
+    var isTag: Bool {
         return self == "@"
     }
     
@@ -25,7 +25,7 @@ extension Character {
         return self == "|"
     }
     
-    var isCommentChar: Bool {
+    var isComment: Bool {
         return self == "#"
     }
     

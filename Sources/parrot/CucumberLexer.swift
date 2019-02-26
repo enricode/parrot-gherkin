@@ -18,35 +18,45 @@ class CucumberLexer: Lexer {
     let text: String
     private(set) var position: String.Index
     
-    private var currentChar: Character?
-    private var shouldCountWhitespaces = false
-    private var skippedWhitespaces: Int = 0
+    private var currentChar: LexerCharacter
+    private var currentLocation: Location
     
     init(feature: String) {
-        self.text = feature
+        text = feature
         position = text.startIndex
-        currentChar = text[position]
+        currentLocation = Location(column: 1, line: 1)
+
+        advance(positions: 0)
     }
     
     private var hasStillCharAhead: Bool {
         return position != text.endIndex
     }
     
-    private func advance(positions: Int = 1) {
-        position = text.index(position, offsetBy: positions)
-        guard position != text.endIndex else {
-            currentChar = nil
-            return
+    private func advance(positions: UInt = 1) {
+        position = text.index(position, offsetBy: Int(positions))
+
+        if position == text.endIndex {
+            currentChar = .none
+        } else {
+            currentChar = LexerCharacter(char: text[position])
         }
-        currentChar = text[position]
+        
+        if currentChar == .newLine {
+            currentLocation = Location(column: 1, line: currentLocation.line + 1)
+        } else {
+            currentLocation = currentLocation.advancedBy(column: 1)
+        }
     }
     
-    private func advance(until char: Character, orEOF: Bool = false) throws {
-        while let current = currentChar, current != char {
+    private func advance(until char: Character, orEOF stopAtEOF: Bool = false) throws {
+        let stopAt = LexerCharacter(char: char)
+        
+        while currentChar != stopAt, currentChar != .none {
             advance()
         }
         
-        if position == text.endIndex && currentChar != char && !orEOF {
+        if position == text.endIndex, currentChar != stopAt, !stopAtEOF {
             throw LexerExceptions.cannotAdvanceUntilNotExistentChar(char: char)
         }
     }
@@ -77,13 +87,10 @@ class CucumberLexer: Lexer {
         return char.first
     }
     
-    private func skipWhitespaces() -> Int {
-        var skipped = 0
-        while let char = currentChar, char.isSpace {
+    private func skip(characterSet: Set<LexerCharacter>) {
+        while currentChar != .none, characterSet.contains(currentChar) {
             advance()
-            skipped += 1
         }
-        return skipped
     }
     
     private func sentence() throws -> String {
@@ -203,45 +210,31 @@ class CucumberLexer: Lexer {
     }
     
     func getNextToken() throws -> Token {
-        while let char = currentChar {
+        while currentChar != .none {
             
-            if char.isSpace {
-                let skipped = skipWhitespaces()
-                
-                if shouldCountWhitespaces {
-                    skippedWhitespaces += skipped
-                }
-                
+            switch currentChar {
+            case .whitespace, .newLine:
+                skip(characterSet: [.whitespace, .newLine])
                 continue
-            } else {
-                shouldCountWhitespaces = true
+            case .comment:
+                let location = currentLocation
+                advance()
                 
-                if skippedWhitespaces > 0 {
-                    let skipped = skippedWhitespaces
-                    skippedWhitespaces = 0
-                    return Token.whitespaces(count: skipped)
-                }
-            }
-            
-            if char.isCommentChar {
-                try advance(until: "\n", orEOF: true)
+                return Token(Expression(content: try sentence()), location)
+            case .tag:
+                let location = currentLocation
+                
                 if hasStillCharAhead {
                     advance()
-                    return Token.newLine
+                    return Token(.tag(try word()), location)
                 } else {
-                    return Token.EOF
+                    return Token(Expression(content: LexerCharacter.tag.representation))
                 }
-            }
-            
-            if char.isNewLine {
-                shouldCountWhitespaces = false
-                advance()
-                return Token.newLine
             }
             
             if char.isTagChar && hasStillCharAhead {
                 advance()
-                let tag = try word()
+                
                 return Token.tag(value: tag)
             }
             
