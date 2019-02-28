@@ -96,24 +96,24 @@ class CucumberLexer: Lexer {
     private func sentence() throws -> String {
         var result = ""
         
-        while let char = currentChar, !char.isNewLine {
-            result.append(char)
+        while currentChar != .newLine && currentChar != .none {
+            result.append(currentChar.representation)
             advance()
         }
         
         return result
     }
     
-    func word() throws -> String {
+    /*func word() throws -> String {
         var result = ""
         
-        while let char = currentChar, !char.isSpace && !char.isNewLine && !char.isColon {
-            result.append(char)
+        while currentChar != .none && currentChar != .whitespace && currentChar != .newLine && currentChar != .colon {
+            result.append(currentChar.representation)
             advance()
         }
         
         return result
-    }
+    }*/
     
     private func peek(until char: Character, stopAtNewLine: Bool = true) throws -> String? {
         var nextIndex = text.index(after: position)
@@ -151,7 +151,7 @@ class CucumberLexer: Lexer {
         var result = ""
         
         while true {
-            guard let current = currentChar else {
+            guard currentChar != .none else {
                 throw LexerExceptions.unexpectedEOFWhileParsingDocString(docString: result)
             }
             
