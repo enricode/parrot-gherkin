@@ -29,8 +29,16 @@ extension Character {
         return self == "#"
     }
     
+    var isQuotes: Bool {
+        return self == "\""
+    }
+    
     var isNotSpace: Bool {
         return !isSpace && !isNewLine
+    }
+    
+    var stringRepresentation: String {
+        return String(self)
     }
 }
 

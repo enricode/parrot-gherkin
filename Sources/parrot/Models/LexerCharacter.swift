@@ -8,6 +8,7 @@ enum LexerCharacter: Equatable, Hashable {
     case tab
     case tag
     case whitespace
+    case quotes
     
     case generic(Character)
     case none
@@ -18,7 +19,9 @@ enum LexerCharacter: Equatable, Hashable {
             return
         }
         
-        if char.isColon {
+        if char.isSpace {
+            self = .whitespace
+        } else if char.isColon {
             self = .colon
         } else if char.isComment {
             self = .comment
@@ -32,9 +35,11 @@ enum LexerCharacter: Equatable, Hashable {
             self = .tag
         } else if char.isSpace {
             self = .whitespace
+        } else if char.isQuotes {
+            self = .quotes
+        } else {
+            self = .generic(char)
         }
-        
-        self = .generic(char)
     }
     
     var representation: Character {
@@ -42,6 +47,7 @@ enum LexerCharacter: Equatable, Hashable {
         case .colon: return ":"
         case .comment: return "#"
         case .pipe: return "|"
+        case .quotes: return "\""
         case .newLine: return "\n"
         case .tab: return "\t"
         case .tag: return "@"
