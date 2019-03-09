@@ -95,6 +95,28 @@ class CucumberLexer: Lexer {
         return String(text.suffix(from: position).prefix(upTo: characterIndex))
     }
     
+    private func peek(until condition: (LexerCharacter) -> Bool) -> String? {
+        var offset: String.IndexDistance = 0
+        var conditionResult: Bool = true
+        
+        repeat {
+            let offsettedPosition = text.index(position, offsetBy: offset)
+            
+            guard offsettedPosition != text.endIndex else {
+                return nil
+            }
+            
+            let character = LexerCharacter(char: text[offsettedPosition])
+            conditionResult = condition(character)
+            
+            if conditionResult == false {
+                offset += 1
+            }
+        } while conditionResult
+        
+        return String(text.prefix(upTo: text.index(position, offsetBy: offset)))
+    }
+    
     private func peek() -> Character? {
         let char: [Character] = peek(count: 1)
         return char.first
@@ -131,19 +153,17 @@ class CucumberLexer: Lexer {
         return extractAllAvoiding(chars: [.none, .whitespace, .newLine], limitAt: limit)
     }
     
-    private func findKeyword<T: GherkinKeyword & CaseIterable & RawRepresentable>(trailingChar: Character? = nil) -> T? where T.RawValue == String {
-        let keywords = T.allCases.compactMap { $0.keyword }
-        
-        if let trailingCharacter = trailingChar {
+    private func findKeyword<T: GherkinKeyword & Findable>(trailingChar: Character? = nil) -> T? {
+        /*if let trailingCharacter = trailingChar {
             if let possiblePeekedKeyword = peek(until: trailingCharacter) {
-                return T(rawValue: possiblePeekedKeyword)
+                return T.init(keyword: possiblePeekedKeyword)
             } else {
                 return nil
             }
         }
         
         var peekCharacterCount = 1
-        var residualPrimaryKeywords = keywords
+        var residualPrimaryKeywords = T.keywords
         while residualPrimaryKeywords.count > 1 {
             residualPrimaryKeywords = residualPrimaryKeywords.filter {
                 $0.starts(with: "\(currentChar.representation)\(peek(count: peekCharacterCount) ?? "")")
@@ -152,39 +172,27 @@ class CucumberLexer: Lexer {
             peekCharacterCount += 1
         }
 
+        if residualPrimaryKeywords.count == 1 && peekCharacterCount > 1, let stringKeyword = residualPrimaryKeywords.first {
+            return T(keyword: stringKeyword)
+        }
         
-        
-        
-        
-    
-        if possibileKeywordsStarting.count == 1, let keyword = possibileKeywordsStarting.first {
-            return T(rawValue: keyword)
-        } else {
+        return nil*/
+        guard let line = peek(until: { $0.isOne(of: [LexerCharacter.none, LexerCharacter.newLine]) }) else {
             return nil
         }
-        /*
-        var residualPrimaryKeywords = T.allCases.compactMap { $0.keyword }
-        var peekCharacterCount = 1
         
-        while residualPrimaryKeywords.count > 1 {
-            residualPrimaryKeywords = residualPrimaryKeywords.filter {
-                $0.starts(with: "\(currentChar.representation)\(peek(count: peekCharacterCount) ?? "")")
+        let keywordsFound = T.keywords.filter { line.starts(with: $0) }
+        
+        switch keywordsFound.count {
+        case 0: return nil
+        case 1: return T(keyword: keywordsFound.first!)
+        default:
+            let sortByLength = keywordsFound.sorted { s1, s2 -> Bool in
+                return s1.count > s2.count
             }
             
-            peekCharacterCount += 1
+            return T(keyword: sortByLength.first!)
         }
-        
-        guard let keywordFound = residualPrimaryKeywords.first else {
-            return nil
-        }
-        
-        let trailing = trailingChar?.stringRepresentation ?? ""
-        guard "\(currentChar.representation)\(peek(count: keywordFound.count - 1 + trailing.count) ?? "")" == "\(keywordFound)\(trailing)" else {
-            return nil
-        }
-        
-        return T(rawValue: keywordFound)
-         */
     }
     
     func getNextToken() throws -> Token {
@@ -228,6 +236,12 @@ class CucumberLexer: Lexer {
                         advance() // colon
                         
                         return Token(primaryKeyword, location)
+                    }
+                    
+                    if let secondaryKeyword: SecondaryKeyword = findKeyword() {
+                        advance(positions: UInt(secondaryKeyword.keyword?.count ?? 0))
+                        
+                        return Token(secondaryKeyword, location)
                     }
                     
                     if let stepKeyword: StepKeyword = findKeyword() {
