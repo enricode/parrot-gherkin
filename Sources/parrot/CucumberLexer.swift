@@ -153,48 +153,6 @@ class CucumberLexer: Lexer {
         return extractAllAvoiding(chars: [.none, .whitespace, .newLine], limitAt: limit)
     }
     
-    private func findKeyword<T: GherkinKeyword & Findable>(trailingChar: Character? = nil) -> T? {
-        /*if let trailingCharacter = trailingChar {
-            if let possiblePeekedKeyword = peek(until: trailingCharacter) {
-                return T.init(keyword: possiblePeekedKeyword)
-            } else {
-                return nil
-            }
-        }
-        
-        var peekCharacterCount = 1
-        var residualPrimaryKeywords = T.keywords
-        while residualPrimaryKeywords.count > 1 {
-            residualPrimaryKeywords = residualPrimaryKeywords.filter {
-                $0.starts(with: "\(currentChar.representation)\(peek(count: peekCharacterCount) ?? "")")
-            }
-            
-            peekCharacterCount += 1
-        }
-
-        if residualPrimaryKeywords.count == 1 && peekCharacterCount > 1, let stringKeyword = residualPrimaryKeywords.first {
-            return T(keyword: stringKeyword)
-        }
-        
-        return nil*/
-        guard let line = peek(until: { $0.isOne(of: [LexerCharacter.none, LexerCharacter.newLine]) }) else {
-            return nil
-        }
-        
-        let keywordsFound = T.keywords.filter { line.starts(with: $0) }
-        
-        switch keywordsFound.count {
-        case 0: return nil
-        case 1: return T(keyword: keywordsFound.first!)
-        default:
-            let sortByLength = keywordsFound.sorted { s1, s2 -> Bool in
-                return s1.count > s2.count
-            }
-            
-            return T(keyword: sortByLength.first!)
-        }
-    }
-    
     func getNextToken() throws -> Token {
         while currentChar != .none {
             let location = currentLocation
@@ -216,10 +174,10 @@ class CucumberLexer: Lexer {
                 advance()
                 
                 return Token(Expression(content: sentence()), location)
-            /*case .tag:
+            case .tag:
                 if hasStillCharAhead {
                     advance()
-                    return Token(SecondaryKeyword.tag(value: word()), location)
+                    return Token(SecondaryKeyword.tag(name: word()), location)
                 } else {
                     return Token(Expression(content: String(LexerCharacter.tag.representation)), location)
                 }
@@ -227,42 +185,30 @@ class CucumberLexer: Lexer {
             case .pipe:
                 advance()
                 return Token(SecondaryKeyword.pipe, location)
-                    */
-            case .generic(_), .colon, .quotes, .pipe:
+            case .generic(_), .colon, .quotes:
                 switch currentContext {
                 case .table:
                     return Token(Expression(content: sentence(limitAt: LexerCharacter.pipe)), location)
                 case .none:
-                    if let primaryKeyword: PrimaryKeyword = findKeyword(trailingChar: ":") {
-                        advance(positions: UInt(primaryKeyword.keyword.count))
-                        advance() // colon
-                        
-                        return Token(primaryKeyword, location)
+                    guard let line = peek(until: { $0.isOne(of: [LexerCharacter.newLine, LexerCharacter.none]) }) else {
+                        return Token(EOF(), currentLocation)
                     }
                     
-                    if let secondaryKeyword: SecondaryKeyword = findKeyword() {
-                        advance(positions: UInt(secondaryKeyword.keywordIdentifier?.count ?? 0))
-                        
-                        return Token(secondaryKeyword, location)
+                    let finder = KeywordFinder(line: line)
+                    
+                    guard let keyword = finder.findKeyword() else {
+                        return Token(Expression(content: sentence()), location)
                     }
                     
-                    if let stepKeyword: StepKeyword = findKeyword() {
-                        guard let keyword = stepKeyword.keywordIdentifier else {
-                            fatalError("This should not happen")
-                        }
-                        advance(positions: UInt(keyword.count))
-                        
-                        return Token(stepKeyword, location)
-                    }
-                    
-                    return Token(Expression(content: sentence()), location)
+                    advance(positions: keyword.lenght)
+                    return Token(keyword, location)
                 case .docString:
                     //TODO
                     return Token(Expression(content: ""), location)
                 }
             case .tab:
                 advance()
-            case .none, .pipe, .tag:
+            case .none:
                 fatalError("This should never happen")
             }
         }

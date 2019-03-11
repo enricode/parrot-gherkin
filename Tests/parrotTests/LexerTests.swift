@@ -63,11 +63,11 @@ final class LexerTests: XCTestCase {
         thenTokens(are: [
             Token(StepKeyword.given, Location(column: 1, line: 1)),
             Token(Expression(content: "something with doc string"), Location(column: 7, line: 1)),
-            Token(SecondaryKeyword(type: .docStrings, content: .some("type")), Location(column: 3, line: 2)),
+            Token(DocString(mark: "type"), Location(column: 3, line: 2)),
             Token(Expression(content: "with first line indented like this"), Location(column: 3, line: 3)),
             Token(Expression(content: "it should preserve two spaces"), Location(column: 5, line: 4)),
             Token(Expression(content: "and now three"), Location(column: 5, line: 6)),
-            Token(SecondaryKeyword(type: .docStrings), Location(column: 6, line: 3)),
+            Token(DocString(mark: nil), Location(column: 6, line: 3)),
             Token(EOF(), Location(column: 9, line: 1))
         ])
     }
@@ -76,8 +76,8 @@ final class LexerTests: XCTestCase {
         given(input: "@tag1 @tag2\nFeature: Hello")
         whenLexing()
         thenTokens(are: [
-            Token(SecondaryKeyword(type: .tag, content: .some("tag1")), Location(column: 1, line: 1)),
-            Token(SecondaryKeyword(type: .tag, content: .some("tag2")), Location(column: 7, line: 1)),
+            Token(SecondaryKeyword.tag(name: "tag1"), Location(column: 1, line: 1)),
+            Token(SecondaryKeyword.tag(name: "tag2"), Location(column: 7, line: 1)),
             Token(PrimaryKeyword.feature, Location(column: 1, line: 2)),
             Token(Expression(content: "Hello"), Location(column: 10, line: 2)),
             Token(EOF(), Location(column: 15, line: 2))
@@ -244,8 +244,11 @@ extension Collection where Element == Token {
         let notEqual = zip(self, tokens).first { tokenPair in
             let (tk1, tk2) = tokenPair
             
-            return tk1.location != tk2.location ||
-                tk1.type.keywordIdentifier != tk2.type.keywordIdentifier
+            guard tk1.location == tk2.location else {
+                return false
+            }
+            
+            return tk1.isEqual(to: tk2)
         }
         
         return notEqual != nil

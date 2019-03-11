@@ -11,11 +11,14 @@ struct Location: Equatable {
     static var start: Location = Location(column: 1, line: 1)
 }
 
+protocol TokenType {
+}
+
 struct Token {
-    let type: GherkinKeyword
+    let type: TokenType
     let location: Location
     
-    init(_ type: GherkinKeyword, _ location: Location) {
+    init(_ type: TokenType, _ location: Location) {
         self.type = type
         self.location = location
     }
