@@ -216,17 +216,19 @@ class CucumberLexer: Lexer {
                 advance()
                 
                 return Token(Expression(content: sentence()), location)
-            case .tag:
+            /*case .tag:
                 if hasStillCharAhead {
                     advance()
                     return Token(SecondaryKeyword.tag(value: word()), location)
                 } else {
                     return Token(Expression(content: String(LexerCharacter.tag.representation)), location)
                 }
+ 
             case .pipe:
                 advance()
                 return Token(SecondaryKeyword.pipe, location)
-            case .generic(_), .colon, .quotes:
+                    */
+            case .generic(_), .colon, .quotes, .pipe:
                 switch currentContext {
                 case .table:
                     return Token(Expression(content: sentence(limitAt: LexerCharacter.pipe)), location)
@@ -239,13 +241,13 @@ class CucumberLexer: Lexer {
                     }
                     
                     if let secondaryKeyword: SecondaryKeyword = findKeyword() {
-                        advance(positions: UInt(secondaryKeyword.keyword?.count ?? 0))
+                        advance(positions: UInt(secondaryKeyword.keywordIdentifier?.count ?? 0))
                         
                         return Token(secondaryKeyword, location)
                     }
                     
                     if let stepKeyword: StepKeyword = findKeyword() {
-                        guard let keyword = stepKeyword.keyword else {
+                        guard let keyword = stepKeyword.keywordIdentifier else {
                             fatalError("This should not happen")
                         }
                         advance(positions: UInt(keyword.count))
@@ -260,7 +262,7 @@ class CucumberLexer: Lexer {
                 }
             case .tab:
                 advance()
-            case .none:
+            case .none, .pipe, .tag:
                 fatalError("This should never happen")
             }
         }

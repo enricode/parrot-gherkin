@@ -2,18 +2,18 @@ import Foundation
 
 enum GherkinKeywordSuffix {
     case none
-    case partOfKeyword(String)
+    case partOfKeyword
     case discardable(String)
 }
 
 protocol GherkinKeyword {
-    var keyword: String? { get }
+    var keywordIdentifier: String? { get }
     var suffix: GherkinKeywordSuffix { get }
 }
 
 extension GherkinKeyword {
     
-    var keyword: String? {
+    var keywordIdentifier: String? {
         return nil
     }
     
@@ -25,7 +25,7 @@ extension GherkinKeyword {
 
 extension GherkinKeyword where Self: RawRepresentable, Self.RawValue == String {
     
-    var keyword: String? {
+    var keywordIdentifier: String? {
         return rawValue
     }
     
@@ -49,7 +49,7 @@ extension Findable where Self: RawRepresentable & CaseIterable, Self.RawValue ==
 extension Findable where Self: GherkinKeyword & RawRepresentable & CaseIterable, Self.RawValue == String {
     
     static var keywords: [String] {
-        return Self.allCases.compactMap { $0.keyword }
+        return Self.allCases.compactMap { $0.keywordIdentifier }
     }
     
 }
@@ -84,6 +84,74 @@ enum PrimaryKeyword: String, CaseIterable, GherkinKeyword, Findable {
     }
 }
 
+struct SecondaryKeyword: GherkinKeyword, Findable {
+    static var keywords: [String] = KeyType.allCases.map { $0.rawValue }
+    
+    enum KeyType: String, CaseIterable {
+        case comment = "#"
+        case docStrings = "\"\"\""
+        case pipe = "|"
+        case tag = "@"
+    }
+    
+    enum KeyContent {
+        case some(String)
+        case none
+    }
+    
+    let type: KeyType
+    let content: KeyContent
+    
+    init(type: KeyType, content: KeyContent = .none) {
+        self.type = type
+        self.content = content
+    }
+    
+    init?(keyword: String) {
+        switch keyword {
+        case KeyType.comment.rawValue:
+            type = .comment
+            content = .none
+        case KeyType.pipe.rawValue:
+            type = .pipe
+            content = .none
+        default:
+            let trimmed = keyword.trimmingCharacters(in: .whitespaces)
+            
+            if keyword.starts(with: KeyType.docStrings.rawValue) {
+                if let afterDocStringsIndex = trimmed.range(of: KeyType.docStrings.rawValue)?.upperBound {
+                    type = .docStrings
+                    
+                    if afterDocStringsIndex == trimmed.endIndex {
+                        content = .none
+                    } else {
+                        content = KeyContent.some(String(trimmed.suffix(from: afterDocStringsIndex)))
+                    }
+                } else {
+                    return nil
+                }
+            } else if keyword.starts(with: KeyType.tag.rawValue) {
+                guard trimmed.count > 1 else {
+                    return nil
+                }
+
+                type = .tag
+                content = KeyContent.some(String(trimmed.suffix(from: trimmed.index(after: keyword.startIndex))))
+            } else {
+                return nil
+            }
+        }
+    }
+    
+    var suffix: GherkinKeywordSuffix {
+        switch type {
+        case .comment, .pipe: return .none
+        case .docStrings, .tag: return GherkinKeywordSuffix.partOfKeyword
+        }
+    }
+}
+
+/*
 enum SecondaryKeyword: GherkinKeyword, Findable {
     case comment
     case docStrings(mark: String?)
@@ -160,6 +228,7 @@ enum SecondaryKeyword: GherkinKeyword, Findable {
         }
     }
 }
+*/
 
 struct Expression: GherkinKeyword {
     let content: String
