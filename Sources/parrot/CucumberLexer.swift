@@ -1,10 +1,3 @@
-//
-//  Lexer.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 28/12/18.
-//
-
 import Foundation
 
 enum LexerExceptions: ParrotError {
@@ -118,10 +111,6 @@ class CucumberLexer: Lexer {
                 
                 continue
             case .newLine:
-                /*if currentContext == .table {
-                    currentContext = .none
-                }*/
-                
                 skip(characterSet: [.newLine])
                 
                 continue
