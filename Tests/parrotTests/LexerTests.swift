@@ -53,11 +53,11 @@ final class LexerTests: XCTestCase {
     func testDocString() {
         given(input: """
             Given something with doc string
-              \"\"\"type
+              \"""type
               with first line indented like this
                 it should preserve two spaces
                  and now three
-              \"\"\"
+              \"""
             """)
         whenLexing()
         thenTokens(are: [
@@ -68,7 +68,7 @@ final class LexerTests: XCTestCase {
             Token(Expression(content: "it should preserve two spaces"), Location(column: 5, line: 4)),
             Token(Expression(content: "and now three"), Location(column: 6, line: 5)),
             Token(DocString(mark: nil), Location(column: 3, line: 6)),
-            Token(EOF(), Location(column: 9, line: 1))
+            Token(EOF(), Location(column: 6, line: 6))
         ])
     }
     

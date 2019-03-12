@@ -55,46 +55,6 @@ class CucumberLexer: Lexer {
         }
     }
     
-    private func advance(until char: Character, orEOF stopAtEOF: Bool = false) throws {
-        let stopAt = LexerCharacter(char: char)
-        
-        while currentChar != stopAt, currentChar != .none {
-            advance()
-        }
-        
-        if position == text.endIndex, currentChar != stopAt, !stopAtEOF {
-            throw LexerExceptions.cannotAdvanceUntilNotExistentChar(char: char)
-        }
-    }
-    
-    private func peek(count: Int) -> [Character] {
-        assert(count > 0, "Count should be > 0")
-        let offsets: [Int] = Array(0...(count-1))
-        
-        let chars = offsets.compactMap { offset -> Character? in
-            guard let nextIndex = text.index(position, offsetBy: offset + 1, limitedBy: text.endIndex) else {
-                return nil
-            }
-            guard nextIndex != text.endIndex else {
-                return nil
-            }
-            return text[nextIndex]
-        }
-        
-        return chars
-    }
-    
-    private func peek(count: Int) -> String? {
-        return String(peek(count: count) as [Character])
-    }
-    
-    private func peek(until characterDelimiter: Character) -> String? {
-        guard let characterIndex = text.suffix(from: position).firstIndex(of: characterDelimiter) else {
-            return nil
-        }
-        return String(text.suffix(from: position).prefix(upTo: characterIndex))
-    }
-    
     private func peek(until condition: (LexerCharacter) -> Bool) -> String? {
         var offset: String.IndexDistance = 0
         var conditionResult: Bool = true
@@ -115,11 +75,6 @@ class CucumberLexer: Lexer {
         } while conditionResult
         
         return String(text.suffix(from: position).prefix(upTo: text.index(position, offsetBy: offset)))
-    }
-    
-    private func peek() -> Character? {
-        let char: [Character] = peek(count: 1)
-        return char.first
     }
     
     private func skip(characterSet: Set<LexerCharacter>) {
