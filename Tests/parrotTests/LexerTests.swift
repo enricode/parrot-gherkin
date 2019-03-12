@@ -66,8 +66,8 @@ final class LexerTests: XCTestCase {
             Token(DocString(mark: "type"), Location(column: 3, line: 2)),
             Token(Expression(content: "with first line indented like this"), Location(column: 3, line: 3)),
             Token(Expression(content: "it should preserve two spaces"), Location(column: 5, line: 4)),
-            Token(Expression(content: "and now three"), Location(column: 5, line: 6)),
-            Token(DocString(mark: nil), Location(column: 6, line: 3)),
+            Token(Expression(content: "and now three"), Location(column: 6, line: 5)),
+            Token(DocString(mark: nil), Location(column: 3, line: 6)),
             Token(EOF(), Location(column: 9, line: 1))
         ])
     }
@@ -218,7 +218,7 @@ final class LexerTests: XCTestCase {
                 print("")
             }
             
-            XCTFail("Tokens are different")
+            XCTFail("Tokens are different \(expectedTokens) \n \(tokens)")
         }
         
         XCTAssert(true)
@@ -245,10 +245,10 @@ extension Collection where Element == Token {
             let (tk1, tk2) = tokenPair
             
             guard tk1.location == tk2.location else {
-                return false
+                return true
             }
             
-            return tk1.isEqual(to: tk2)
+            return String(describing: tk1) != String(describing: tk2)
         }
         
         return notEqual != nil

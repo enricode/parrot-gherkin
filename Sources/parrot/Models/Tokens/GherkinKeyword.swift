@@ -101,20 +101,10 @@ struct Comment: GherkinKeyword, Equatable {
 }
 
 struct Expression: GherkinKeyword, Equatable {
-    let originalContent: String
-    let trimmedContent: String
+    let content: String
 
-    init(content: String) {
-        originalContent = content
-        trimmedContent = content.trimmingCharacters(in: .whitespaces)
-    }
-    
     var lenght: UInt {
-        return UInt(originalContent.count)
-    }
-    
-    static func == (lhs: Expression, rhs: Expression) -> Bool {
-        return lhs.originalContent == rhs.originalContent
+        return UInt(content.count)
     }
 }
 

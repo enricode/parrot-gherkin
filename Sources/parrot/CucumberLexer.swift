@@ -103,18 +103,18 @@ class CucumberLexer: Lexer {
             let offsettedPosition = text.index(position, offsetBy: offset)
             
             guard offsettedPosition != text.endIndex else {
-                return nil
+                break
             }
             
             let character = LexerCharacter(char: text[offsettedPosition])
             conditionResult = condition(character)
             
-            if conditionResult == false {
+            if conditionResult {
                 offset += 1
             }
         } while conditionResult
         
-        return String(text.prefix(upTo: text.index(position, offsetBy: offset)))
+        return String(text.suffix(from: position).prefix(upTo: text.index(position, offsetBy: offset)))
     }
     
     private func peek() -> Character? {
@@ -142,7 +142,7 @@ class CucumberLexer: Lexer {
             advance()
         }
         
-        return result
+        return result.trimmingCharacters(in: .whitespaces)
     }
     
     private func sentence(limitAt limit: LexerCharacter? = nil) -> String {
@@ -163,9 +163,9 @@ class CucumberLexer: Lexer {
                 
                 continue
             case .newLine:
-                if currentContext == .table {
+                /*if currentContext == .table {
                     currentContext = .none
-                }
+                }*/
                 
                 skip(characterSet: [.newLine])
                 
@@ -186,26 +186,18 @@ class CucumberLexer: Lexer {
                 advance()
                 return Token(SecondaryKeyword.pipe, location)
             case .generic(_), .colon, .quotes:
-                switch currentContext {
-                case .table:
-                    return Token(Expression(content: sentence(limitAt: LexerCharacter.pipe)), location)
-                case .none:
-                    guard let line = peek(until: { $0.isOne(of: [LexerCharacter.newLine, LexerCharacter.none]) }) else {
-                        return Token(EOF(), currentLocation)
-                    }
-                    
-                    let finder = KeywordFinder(line: line)
-                    
-                    guard let keyword = finder.findKeyword() else {
-                        return Token(Expression(content: sentence()), location)
-                    }
-                    
-                    advance(positions: keyword.lenght)
-                    return Token(keyword, location)
-                case .docString:
-                    //TODO
-                    return Token(Expression(content: ""), location)
+                guard let line = peek(until: { $0.isNotOne(of: [LexerCharacter.newLine, LexerCharacter.none]) }) else {
+                    return Token(EOF(), currentLocation)
                 }
+                
+                let finder = KeywordFinder(line: line)
+                
+                guard let keyword = finder.findKeyword() else {
+                    return Token(Expression(content: sentence()), location)
+                }
+                
+                advance(positions: keyword.lenght)
+                return Token(keyword, location)
             case .tab:
                 advance()
             case .none:
