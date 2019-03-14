@@ -3,16 +3,20 @@ import Foundation
 enum InterpreterException: ParrotError {
     case unexpectedTerm(term: TokenType, expected: TokenType)
     case titleExpectedNothingFound
+    case textExpectedNothingFound
     case scenarioOutlineWithoutExamples
     case unexpectedTitleDescriptionFactor
     case exampleTableWithoutTitle
+    case exampleTableWithoutRows
+    case expectedDataTableToken
 }
 
 class CucumberInterpreter: Interpreter {    
+    
     let lexer: Lexer
     
     private var currentToken: Token
-    private var commentsTokens: [Token]
+    private var commentsTokens: [Token] = []
     
     init(lexer: Lexer) throws {
         self.lexer = lexer
@@ -27,10 +31,10 @@ class CucumberInterpreter: Interpreter {
         repeat {
             currentToken = try lexer.getNextToken()
             
-            if currentToken == Comment.self {
+            if currentToken == CommentKeyword.self {
                 commentsTokens.append(currentToken)
             }
-        } while currentToken == Comment.self
+        } while currentToken == CommentKeyword.self
     }
     
     // tags -> FEATURE: -> title_description -> scenarios -> EOF
@@ -170,29 +174,60 @@ class CucumberInterpreter: Interpreter {
             throw InterpreterException.exampleTableWithoutTitle
         }
         
-        let table = try ExamplesTable(
-            title: title,
-            columns: try columnsTitles(),
-            dataTable: try dataTable()
-        )
-        
-        return ASTNode(table, location: location)
-        
-    }
-    
-    // (PIPE -> (word | whitespaces) * -> PIPE -> NEWLINE)* -> NEWLINE | Scenario Key ->
-    private func dataTable() throws -> DataTable {
-        var rows: [[String]] = []
-        
-        while currentToken == .pipe {
-            rows.append(try wordsBetweenPipes())
+        // data table
+        guard let table = try dataTable() else {
+            throw InterpreterException.exampleTableWithoutRows
         }
         
-        return try DataTable(values: rows)
+        return ASTNode(try ExamplesTable(title: title, dataTable: table), location: location)
     }
     
-    private func steps() throws -> [Step] {
-        var stepList: [Step] = []
+    // PIPE -> (expression -> PIPE)* ->
+    private func dataTable() throws -> DataTable? {
+        guard currentToken == SecondaryKeyword.pipe else {
+            return nil
+        }
+        
+        var rows: [ASTNode<DataTable.Row>] = []
+        
+        // pipe
+        try eat()
+        
+        while currentToken.isExpressionOrPipe {
+            let initialLocation = currentToken.location
+            var cells: [ASTNode<DataTable.Cell>] = []
+            
+            while currentToken.location.line == initialLocation.line && !(currentToken == EOF.self) {
+                if currentToken.type is Expression {
+                    let expression = currentToken
+                    try eat()
+                    
+                    guard currentToken == SecondaryKeyword.pipe else {
+                        throw InterpreterException.expectedDataTableToken
+                    }
+                    
+                    let node = ASTNode(
+                        DataTable.Cell.value((expression.type as! Expression).content),
+                        location: expression.location
+                    )
+                    cells.append(node)
+                } else if currentToken == SecondaryKeyword.pipe {
+                    cells.append(ASTNode(DataTable.Cell.empty, location: currentToken.location))
+                } else {
+                    throw InterpreterException.expectedDataTableToken
+                }
+                
+                try eat() // pipe
+            }
+            
+            rows.append(ASTNode(DataTable.Row(cells: cells), location: initialLocation))
+        }
+        
+        return try DataTable(rows: rows)
+    }
+    
+    private func steps() throws -> [ASTNode<Step>] {
+        var stepList: [ASTNode<Step>] = []
         
         while currentToken.isStepKeyword {
             stepList.append(try step())
@@ -202,101 +237,20 @@ class CucumberInterpreter: Interpreter {
     }
     
     // STEPKEYWORD -> step_text -> (newline -> data_table | doc_string)* ->
-    private func step() throws -> Step {
-        // STEPKEYWORD
-        guard case .stepKeyword(let keyword) = currentToken else {
-            throw InterpreterException.unexpectedTerm(
-                term: currentToken.descriptionValue,
-                expected: Token.stepKeyword(.given).descriptionValue
-            )
+    private func step() throws -> ASTNode<Step> {
+        guard let stepKeyword = currentToken.type as? StepKeyword else {
+            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: StepKeyword.given)
         }
         
+        let stepLocation = currentToken.location
         try eat() // keyword
-        try eat() // whitespace
         
-        // step_text
-        let text = try stepText()
-        
-        // data_table
-        var table: DataTable? = nil
-        if currentToken == .newLine {
-            try eat() // newline
-            
-            if currentToken == .pipe {
-                table = try dataTable()
-            }
+        guard let text = sentence() else {
+            throw InterpreterException.textExpectedNothingFound
         }
         
-        return try Step(
-            keyword: keyword.stepKeyword,
-            text: text.content,
-            parameters: text.parameters,
-            dataTable: table
-        )
+        let step = try Step(keyword: stepKeyword, text: text, dataTable: try dataTable())
+        
+        return ASTNode(step, location: stepLocation)
     }
-    
-    private func stepText() throws -> (content: String, parameters: [Step.Parameter]) {
-        var stepContent = ""
-        var parameters: [Step.Parameter] = []
-        
-        while currentToken != .newLine && currentToken != .EOF {
-            switch currentToken {
-            case .exampleParameter(let value), .parameter(let value):
-                let previousIndex = stepContent.endIndex
-                let representation = currentToken.representation
-                stepContent.append(representation)
-                
-                let closedRange = stepContent.index(after: previousIndex)...stepContent.index(before: stepContent.endIndex)
-                let parameter = Step.Parameter(
-                    kind: currentToken.isParameter ? .parameter : .example,
-                    value: value,
-                    position: closedRange
-                )
-                
-                parameters.append(parameter)
-            default:
-                stepContent.append(currentToken.representation)
-            }
-            
-            try eat()
-        }
-        
-        return (stepContent, parameters)
-    }
-    
-    private func columnsTitles() throws -> [String] {
-        return try wordsBetweenPipes()
-    }
-    
-    private func wordsBetweenPipes() throws -> [String] {
-        guard currentToken == .pipe else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.representation, expected: Token.pipe.descriptionValue)
-        }
-        
-        try eat() // ignore pipe
-        
-        var partialResult: String = ""
-        var words: [String] = []
-        
-        while currentToken != .newLine && currentToken != .EOF {
-            if currentToken == .pipe {
-                words.append(partialResult.trimmingCharacters(in: .whitespaces))
-                partialResult = ""
-            } else {
-                partialResult.append(currentToken.representation)
-            }
-            try eat()
-        }
-        
-        try eat() // newLine
-        
-        return words
-    }
-    
-    private func skipWhitespaces() throws {
-        while currentToken.isWhitespace {
-            try eat()
-        }
-    }
-    
 }

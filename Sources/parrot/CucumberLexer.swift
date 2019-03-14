@@ -178,7 +178,7 @@ class CucumberLexer: Lexer {
                 
                 return Token(SecondaryKeyword.pipe, location)
             case .generic(_), .colon, .quotes:
-                return try genericParse()
+                return genericParse()
             case .tab:
                 advance()
             case .none:

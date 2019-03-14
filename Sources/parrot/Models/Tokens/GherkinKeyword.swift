@@ -164,4 +164,12 @@ extension Token {
         return primaryKey == .examples
     }
     
+    var isExpressionOrPipe: Bool {
+        return self.type.isSameType(as: SecondaryKeyword.pipe) || self.type is Expression
+    }
+    
+    var isStepKeyword: Bool {
+        return self.type is StepKeyword
+    }
+    
 }

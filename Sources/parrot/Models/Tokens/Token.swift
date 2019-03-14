@@ -16,12 +16,15 @@ protocol TokenType {
 }
 
 extension TokenType {
+    
     func isSameType(as object: Any) -> Bool {
         return object is Self
     }
+    
 }
 
 extension TokenType where Self: RawRepresentable, Self.RawValue == String {
+    
     func isSameType(as object: Any) -> Bool {
         guard let other = object as? Self else {
             return false
@@ -29,6 +32,7 @@ extension TokenType where Self: RawRepresentable, Self.RawValue == String {
         
         return other.rawValue == rawValue
     }
+    
 }
 
 struct Token {
