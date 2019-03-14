@@ -141,7 +141,7 @@ final class LexerTests: XCTestCase {
             Token(EOF(), Location(column: 9, line: 1))
         ])
     }
-    /*
+    
     func testComments() {
         given(input: """
             # this is a comment
@@ -155,18 +155,15 @@ final class LexerTests: XCTestCase {
             """)
         whenLexing()
         thenTokens(are: [
-            Token(SecondaryKeyword.comment, Location(column: 1, line: 1)),
-            Token(Expression(content: "this is a comment"), Location(column: 3, line: 1)),
+            Token(CommentKeyword(content: "this is a comment"), Location(column: 1, line: 1)),
             Token(PrimaryKeyword.feature, Location(column: 1, line: 3)),
             Token(Expression(content: "A"), Location(column: 10, line: 3)),
-            Token(SecondaryKeyword.comment, Location(column: 5, line: 1)),
-            Token(Expression(content: "another comment"), Location(column: 2, line: 5)),
+            Token(CommentKeyword(content: "another comment"), Location(column: 1, line: 5)),
             Token(PrimaryKeyword.scenario, Location(column: 1, line: 6)),
             Token(Expression(content: "Hello"), Location(column: 11, line: 6)),
             Token(StepKeyword.given, Location(column: 5, line: 7)),
             Token(Expression(content: "this"), Location(column: 11, line: 7)),
-            Token(SecondaryKeyword.comment, Location(column: 1, line: 8)),
-            Token(Expression(content: "a step comment"), Location(column: 3, line: 8)),
+            Token(CommentKeyword(content: "a step comment"), Location(column: 1, line: 8)),
             Token(EOF(), Location(column: 17, line: 8))
         ])
     }
@@ -174,30 +171,40 @@ final class LexerTests: XCTestCase {
     func testDataTable() {
         given(input: """
             Given this table:
-                | title of column |
-                | data 1          |
-                | data 2          |
+                | title of column | second column |
+                | data 1          |data 3         |
+                | ||
+                | data 4|
             """)
         whenLexing()
         thenTokens(are: [
             Token(StepKeyword.given, Location(column: 1, line: 1)),
             Token(Expression(content: "this table:"), Location(column: 7, line: 1)),
+            
             Token(SecondaryKeyword.pipe, Location(column: 5, line: 2)),
             Token(Expression(content: "title of column"), Location(column: 7, line: 2)),
             Token(SecondaryKeyword.pipe, Location(column: 23, line: 2)),
+            Token(Expression(content: "second column"), Location(column: 25, line: 2)),
+            Token(SecondaryKeyword.pipe, Location(column: 39, line: 2)),
             
             Token(SecondaryKeyword.pipe, Location(column: 5, line: 3)),
             Token(Expression(content: "data 1"), Location(column: 7, line: 3)),
             Token(SecondaryKeyword.pipe, Location(column: 23, line: 3)),
+            Token(Expression(content: "data 3"), Location(column: 24, line: 3)),
+            Token(SecondaryKeyword.pipe, Location(column: 39, line: 3)),
             
             Token(SecondaryKeyword.pipe, Location(column: 5, line: 4)),
-            Token(Expression(content: "data 2"), Location(column: 7, line: 4)),
-            Token(SecondaryKeyword.pipe, Location(column: 23, line: 4)),
+            Token(SecondaryKeyword.pipe, Location(column: 7, line: 4)),
+            Token(SecondaryKeyword.pipe, Location(column: 8, line: 4)),
             
-            Token(EOF(), Location(column: 24, line: 4))
+            Token(SecondaryKeyword.pipe, Location(column: 5, line: 5)),
+            Token(Expression(content: "data 4"), Location(column: 7, line: 5)),
+            Token(SecondaryKeyword.pipe, Location(column: 13, line: 5)),
+            
+            Token(EOF(), Location(column: 14, line: 5))
         ])
     }
-    */
+    
     private func given(input: String) {
         lexer = CucumberLexer(feature: input)
     }

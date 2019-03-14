@@ -1,7 +1,7 @@
 import Foundation
 
 enum InterpreterException: ParrotError {
-    case unexpectedTerm(term: String, expected: String)
+    case unexpectedTerm(term: TokenType, expected: TokenType)
     case titleExpectedNothingFound
     case scenarioOutlineWithoutExamples
     case unexpectedTitleDescriptionFactor
@@ -11,103 +11,91 @@ enum InterpreterException: ParrotError {
 class CucumberInterpreter: Interpreter {    
     let lexer: Lexer
     
-    private var fileLine: Int = 0
-    private var currentToken: Token = .EOF
-    private var currentLine: Int = 0
+    private var currentToken: Token
+    private var commentsTokens: [Token]
     
     init(lexer: Lexer) throws {
         self.lexer = lexer
+        currentToken = try lexer.getNextToken()
     }
     
-    func parse() throws -> AST {
-        try eat()
+    func parse() throws -> ASTNode<Feature> {
         return try feature()
     }
     
-    @discardableResult
-    private func eat() throws -> Token {
-        currentToken = try lexer.getNextToken()
-        
-        if currentToken == .newLine {
-            fileLine += 1
-        }
-
-        return currentToken
+    private func eat() throws {
+        repeat {
+            currentToken = try lexer.getNextToken()
+            
+            if currentToken == Comment.self {
+                commentsTokens.append(currentToken)
+            }
+        } while currentToken == Comment.self
     }
     
-    /// Extract all tokens until "newline" or "EOF".
-    /// Any newline is then eat.
-    private func sentence() throws -> String? {
-        var result = ""
-        while currentToken != .newLine && currentToken != .EOF {
-            result.append(currentToken.representation)
-            try eat()
-        }
-        
-        if currentToken == .newLine {
-            try eat()
-        }
-
-        return result == "" ? nil : result
-    }
-    
-    // tags -> NL -> FEATURE: -> title_description -> scenarios -> EOF
-    private func feature() throws -> Feature {
+    // tags -> FEATURE: -> title_description -> scenarios -> EOF
+    private func feature() throws -> ASTNode<Feature> {
         let tagList = try tags()
         
-        guard currentToken == Token.scenarioKey(.feature) else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: ScenarioKey.feature.descriptionValue)
+        guard currentToken == PrimaryKeyword.feature else {
+            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: PrimaryKeyword.feature)
         }
-        try eat() // Feature:
         
-        let titleDesc = try titleDescription(factor: ScenarioKey.feature)
+        let featureLocation = currentToken.location
+        try eat() // Feature token
+        
+        let titleDesc = try titleDescription()
         let scenarioList = try scenarios()
         
-        try ensureResidualTokensAreWhitespacesAndNewlines()
+        guard currentToken == EOF.self else {
+            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: EOF())
+        }
         
-        return try Feature(
-            tags: tagList,
-            title: titleDesc.title,
-            description: titleDesc.description,
-            scenarios: scenarioList
+        return ASTNode(
+            try Feature(
+                tags: tagList,
+                title: titleDesc.title,
+                description: titleDesc.description,
+                scenarios: scenarioList
+            ),
+            location: featureLocation
         )
     }
     
-    private func titleDescription(factor: Keyword) throws -> (title: String, description: String?) {
-        guard let title = try sentence() else {
+    private func sentence() -> String? {
+        guard let expressionToken = currentToken.type as? Expression else {
+            return nil
+        }
+        
+        return expressionToken.content
+    }
+    
+    private func titleDescription() throws -> (title: String, description: String?) {
+        guard let title = sentence() else {
             throw InterpreterException.titleExpectedNothingFound
         }
         
-        if factor is ScenarioKey, currentToken.isScenarioKeyword {
-            return (title: title, description: nil)
-        }
-        
-        if factor is StepKeyword, currentToken.isStepKeyword {
-            return (title: title, description: nil)
-        }
-        
-        if !(factor is ScenarioKey || factor is StepKeyword) {
-            throw InterpreterException.unexpectedTitleDescriptionFactor
-        }
-        
-        if currentToken.isStepKeyword {
+        if currentToken == StepKeyword.self {
             return (title: title, description: nil)
         } else {
-            return (title: title, description: try sentence())
+            return (title: title, description: sentence())
         }
     }
     
     // @tag*
-    private func tags() throws -> [Tag] {
-        var tags: [Tag] = []
+    private func tags() throws -> [ASTNode<Tag>] {
+        var tags: [ASTNode<Tag>] = []
         
         while true {
-            switch currentToken {
-            case .tag(let tagValue):
-                tags.append(Tag(tag: tagValue))
-            case .whitespaces, .newLine:
-                break
-            default:
+            if let secondaryKeyword = currentToken.type as? SecondaryKeyword,
+                case .tag(let name) = secondaryKeyword
+            {
+                let node = ASTNode(
+                    Tag(tag: name),
+                    location: currentToken.location
+                )
+                tags.append(node)
+            } else {
                 return tags
             }
             try eat()
@@ -117,84 +105,79 @@ class CucumberInterpreter: Interpreter {
     }
     
     // scenario | scenario*
-    private func scenarios() throws -> [Scenario] {
-        var scenarioList: [Scenario] = []
+    private func scenarios() throws -> [ASTNode<Scenario>] {
+        var scenarioList: [ASTNode<Scenario>] = []
         
         while let scenario = try scenario() {
             scenarioList.append(scenario)
-            
-            while currentToken.isWhitespaceOrNewLine {
-                try eat()
-            }
-            
-            if currentToken == .EOF {
-                break
-            }
         }
         
         return scenarioList
     }
     
     // tags -> SCENARIO KEY -> title_description -> steps -> examples
-    private func scenario() throws -> Scenario? {
+    private func scenario() throws -> ASTNode<Scenario>? {
         // tags
         let tagList = try tags()
         
         // SCENARIO KEY
-        guard case .scenarioKey(let scenarioKey) = currentToken else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: "Scenario:, Example:, Scenario Outline:, Scenario Template:")
+        guard currentToken.isScenarioKeyword else {
+            throw InterpreterException.unexpectedTerm(
+                term: currentToken.type,
+                expected: PrimaryKeyword.scenario // "Scenario:, Example:, Scenario Outline:, Scenario Template:"
+            )
         }
+        let location = currentToken.location
+
         try eat() // scenario key
         
         // title_description
-        let titleDesc = try titleDescription(factor: ScenarioKey.scenario)
-        
-        // steps
-        let stepList = try steps()
-        
-        // outline
-        let outline: Outline
-        if scenarioKey.isScenarioOutlineKey {
-            guard let exampleTable = try examples() else {
-                throw InterpreterException.scenarioOutlineWithoutExamples
-            }
-            outline = Outline.outline(examples: exampleTable)
-        } else {
-            outline = Outline.notOutline
-        }
-        
-        return try Scenario(
+        let titleDesc = try titleDescription()
+
+        let scenario = try Scenario(
             tags: tagList,
             title: titleDesc.title,
             description: titleDesc.description,
-            steps: stepList,
-            outline: outline
+            steps: try steps(),
+            outline: try outline()
         )
+        
+        return ASTNode(scenario, location: location)
+    }
+    
+    private func outline() throws -> Outline {
+        if currentToken.isScenarioOutlineKey {
+            guard let exampleTable = try examples() else {
+                throw InterpreterException.scenarioOutlineWithoutExamples
+            }
+            return Outline.outline(examples: exampleTable)
+        } else {
+            return Outline.notOutline
+        }
     }
     
     // Examples: -> title -> columns_title -> data_table ->
-    private func examples() throws -> ExamplesTable? {
+    private func examples() throws -> ASTNode<ExamplesTable>? {
         // Examples:
         guard currentToken.isExamplesToken else {
             return nil
         }
         
+        let location = currentToken.location
+        
         // title
-        guard let title = try sentence() else {
+        guard let title = sentence() else {
             throw InterpreterException.exampleTableWithoutTitle
         }
         
-        // columns_title
-        let columns = try columnsTitles()
-        
-        // data_table
-        let exampleTable = try dataTable()
-        
-        return try ExamplesTable(
+        let table = try ExamplesTable(
             title: title,
-            columns: columns,
-            dataTable: exampleTable
+            columns: try columnsTitles(),
+            dataTable: try dataTable()
         )
+        
+        return ASTNode(table, location: location)
+        
     }
     
     // (PIPE -> (word | whitespaces) * -> PIPE -> NEWLINE)* -> NEWLINE | Scenario Key ->
@@ -210,9 +193,11 @@ class CucumberInterpreter: Interpreter {
     
     private func steps() throws -> [Step] {
         var stepList: [Step] = []
+        
         while currentToken.isStepKeyword {
             stepList.append(try step())
         }
+        
         return stepList
     }
     
@@ -311,126 +296,6 @@ class CucumberInterpreter: Interpreter {
     private func skipWhitespaces() throws {
         while currentToken.isWhitespace {
             try eat()
-        }
-    }
-    
-    private func ensureResidualTokensAreWhitespacesAndNewlines() throws {
-        guard currentToken != .EOF else {
-            return
-        }
-        
-        try eat()
-        while currentToken.isWhitespaceOrNewLine {
-            try eat()
-        }
-        
-        if currentToken != .EOF {
-            throw InterpreterException.unexpectedTerm(term: currentToken.descriptionValue, expected: Token.EOF.descriptionValue)
-        }
-    }
-    
-}
-
-extension Token {
-    
-    var isTag: Bool {
-        if case .tag(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var isScenarioKeyword: Bool {
-        if case .scenarioKey(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var isStepKeyword: Bool {
-        if case .stepKeyword(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var isExamplesToken: Bool {
-        if case .scenarioKey(let key) = self, key == .examples {
-            return true
-        }
-        return false
-    }
-    
-    var isWhitespace: Bool {
-        if case .whitespaces(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var isWhitespaceOrNewLine: Bool {
-        switch self {
-        case .whitespaces, .newLine:
-            return true
-        default:
-            return false
-        }
-    }
-    
-    var isParameter: Bool {
-        if case .parameter(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var isExampleParameter: Bool {
-        if case .exampleParameter(_) = self {
-            return true
-        }
-        return false
-    }
-    
-    var descriptionValue: String {
-        switch self {
-        case .colon: return ":"
-        case .docString(let value): return "\"\"\"\(value)\"\"\""
-        case .exampleParameter: return "<parameter>"
-        case .newLine: return "newline"
-        case .parameter: return "\"parameter\""
-        case .pipe: return "|"
-        case .scenarioKey: return "Scenario:, Example:, Examples:, Feature:, Outline:, Template:, Background:"
-        case .stepKeyword: return "Given, When, Then, And, But"
-        case .tag: return "@tag"
-        case .whitespaces: return "'whitespace'"
-        case .word(let value): return "word '\(value)'"
-        case .EOF: return "end of file"
-        }
-    }
-    
-}
-
-extension ScenarioKey {
-    
-    fileprivate var descriptionValue: String {
-        return rawValue
-    }
-    
-}
-
-extension StepKeyword {
-    
-    fileprivate var descriptionValue: String {
-        return rawValue
-    }
-    
-    fileprivate var stepKeyword: Step.Keyword {
-        switch self {
-        case .and: return .and
-        case .but: return .but
-        case .given: return .given
-        case .then: return .then
-        case .when: return .when
         }
     }
     

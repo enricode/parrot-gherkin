@@ -79,7 +79,7 @@ struct DocString: GherkinKeyword, Equatable {
     }
 }
 
-struct Comment: GherkinKeyword, Equatable {
+struct CommentKeyword: GherkinKeyword, Equatable {
     static var keyCount: Int { return keyword.count }
     static let keyword = "#"
     
@@ -92,7 +92,7 @@ struct Comment: GherkinKeyword, Equatable {
     }
     
     var lenght: UInt {
-        return UInt(Comment.keyCount + originalContent.count)
+        return UInt(CommentKeyword.keyCount + originalContent.count)
     }
 }
 
@@ -128,9 +128,40 @@ struct NextContentMatcher: KeywordMatcher {
                 return DocString(mark: nil)
             }
         } else if sentence.starts(with: "#") {
-            return Comment(content: String(sentence.suffix(from: sentence.index(after: sentence.startIndex))))
+            return CommentKeyword(content: String(sentence.suffix(from: sentence.index(after: sentence.startIndex))))
         }
         return nil
     }
 
+}
+
+extension Token {
+    
+    var isScenarioKeyword: Bool {
+        guard let primaryKey = self.type as? PrimaryKeyword else {
+            return false
+        }
+        
+        switch primaryKey {
+        case .scenario, .scenarioOutline, .scenarioTemplate, .example, .background:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isScenarioOutlineKey: Bool {
+        guard let primaryKey = self.type as? PrimaryKeyword else {
+            return false
+        }
+        return primaryKey == .scenarioOutline || primaryKey == .scenarioTemplate
+    }
+    
+    var isExamplesToken: Bool {
+        guard let primaryKey = self.type as? PrimaryKeyword else {
+            return false
+        }
+        return primaryKey == .examples
+    }
+    
 }

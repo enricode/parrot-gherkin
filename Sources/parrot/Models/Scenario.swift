@@ -1,10 +1,3 @@
-//
-//  Scenario.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 29/12/18.
-//
-
 import Foundation
 
 enum ScenarioInitializationException: String, ParrotError {
@@ -16,17 +9,17 @@ enum ScenarioInitializationException: String, ParrotError {
 
 enum Outline: Equatable {
     case notOutline
-    case outline(examples: ExamplesTable)
+    case outline(examples: ASTNode<ExamplesTable>)
 }
 
 struct Scenario: AST, Equatable {
-    let tags: [Tag]
+    let tags: [ASTNode<Tag>]
     let title: String
     let description: String?
-    let steps: [Step]
+    let steps: [ASTNode<Step>]
     let outline: Outline
     
-    init(tags: [Tag], title: String, description: String?, steps: [Step], outline: Outline) throws {
+    init(tags: [ASTNode<Tag>], title: String, description: String?, steps: [ASTNode<Step>], outline: Outline) throws {
         if title.isEmpty {
             throw ScenarioInitializationException.emptyTitle
         }

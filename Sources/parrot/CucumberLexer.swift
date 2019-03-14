@@ -9,16 +9,15 @@ enum LexerExceptions: ParrotError {
 class CucumberLexer: Lexer {
     
     enum LexerContext {
-        case none
+        case normal
         case table
-        case docString
     }
     
     let text: String
     private(set) var position: String.Index
     
     private var currentChar: LexerCharacter = .none
-    private var currentContext: LexerContext = .none
+    private var currentContext: LexerContext = .normal
     private var currentLocation: Location = .start
     
     init(feature: String) {
@@ -37,12 +36,17 @@ class CucumberLexer: Lexer {
 
         if position == text.endIndex {
             currentChar = .none
+            currentContext = .normal
         } else {
             currentChar = LexerCharacter(char: text[position])
         }
         
         if currentChar == .newLine {
             currentLocation = Location(column: 0, line: currentLocation.line + 1)
+            
+            if currentContext == .table {
+                currentContext = .normal
+            }
         } else {
             currentLocation = currentLocation.advancedBy(column: positions)
         }
@@ -101,6 +105,48 @@ class CucumberLexer: Lexer {
         return extractAllAvoiding(chars: [.none, .whitespace, .newLine], limitAt: limit)
     }
     
+    private func genericParse() -> Token {
+        switch currentContext {
+        case .normal:
+            return genericKeywordParse()
+        case .table:
+            return genericDataTableParse()
+        }
+    }
+    
+    private func genericKeywordParse() -> Token {
+        let location = currentLocation
+        
+        guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none]) }) else {
+            return Token(EOF(), currentLocation)
+        }
+        
+        let finder = KeywordFinder(line: line)
+        
+        guard let keyword = finder.findKeyword() else {
+            return Token(Expression(content: sentence()), location)
+        }
+        
+        advance(positions: keyword.lenght)
+        return Token(keyword, location)
+    }
+    
+    private func genericDataTableParse() -> Token {
+        let location = currentLocation
+        
+        guard currentChar != .pipe else {
+            advance()
+            return Token(SecondaryKeyword.pipe, location)
+        }
+        
+        guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none, .pipe]) })?.trimmingCharacters(in: .whitespaces) else {
+            return Token(EOF(), currentLocation)
+        }
+        
+        advance(positions: UInt(line.count))
+        return Token(Expression(content: line), location)
+    }
+    
     func getNextToken() throws -> Token {
         while currentChar != .none {
             let location = currentLocation
@@ -117,7 +163,7 @@ class CucumberLexer: Lexer {
             case .comment:
                 advance()
                 
-                return Token(Expression(content: sentence()), location)
+                return Token(CommentKeyword(content: sentence()), location)
             case .tag:
                 if hasStillCharAhead {
                     advance()
@@ -128,20 +174,11 @@ class CucumberLexer: Lexer {
  
             case .pipe:
                 advance()
+                currentContext = .table
+                
                 return Token(SecondaryKeyword.pipe, location)
             case .generic(_), .colon, .quotes:
-                guard let line = peek(until: { $0.isNotOne(of: [LexerCharacter.newLine, LexerCharacter.none]) }) else {
-                    return Token(EOF(), currentLocation)
-                }
-                
-                let finder = KeywordFinder(line: line)
-                
-                guard let keyword = finder.findKeyword() else {
-                    return Token(Expression(content: sentence()), location)
-                }
-                
-                advance(positions: keyword.lenght)
-                return Token(keyword, location)
+                return try genericParse()
             case .tab:
                 advance()
             case .none:

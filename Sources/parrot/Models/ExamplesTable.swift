@@ -1,10 +1,3 @@
-//
-//  ExamplesTable.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 02/01/19.
-//
-
 import Foundation
 
 enum ExamplesTableInitializationException: String, ParrotError {
@@ -13,7 +6,7 @@ enum ExamplesTableInitializationException: String, ParrotError {
     case unmatchedValuesCountWithColumns
 }
 
-struct ExamplesTable: Equatable {
+struct ExamplesTable: AST, Equatable {
     let title: String
     let columns: [String]
     let dataTable: DataTable

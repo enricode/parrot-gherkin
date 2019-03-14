@@ -1,10 +1,3 @@
-//
-//  Feature.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 29/12/18.
-//
-
 import Foundation
 
 enum FeatureInitializationException: String, ParrotError {
@@ -13,13 +6,18 @@ enum FeatureInitializationException: String, ParrotError {
     case emptyDescription
 }
 
+enum FeatureLanguage: String {
+    case english = "en"
+}
+
 struct Feature: AST, Equatable {
-    let tags: [Tag]
+    let tags: [ASTNode<Tag>]
     let title: String
     let description: String?
-    let scenarios: [Scenario]
+    let scenarios: [ASTNode<Scenario>]
+    let language: FeatureLanguage = .english
     
-    init(tags: [Tag], title: String, description: String?, scenarios: [Scenario]) throws {
+    init(tags: [ASTNode<Tag>], title: String, description: String?, scenarios: [ASTNode<Scenario>]) throws {
         self.tags = tags
         
         self.title = title
