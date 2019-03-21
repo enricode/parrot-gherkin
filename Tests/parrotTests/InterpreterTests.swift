@@ -1,6 +1,6 @@
 import XCTest
 @testable import parrot
-
+/*
 final class InterpreterTests: XCTestCase {
     
     var interpreter: CucumberInterpreter!
@@ -248,3 +248,4 @@ final class InterpreterTests: XCTestCase {
         ("testIncompleteFeature", testIncompleteFeature)
     ]
 }
+*/

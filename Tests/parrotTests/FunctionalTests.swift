@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+
 @testable import parrot
 
 final class FunctionalTests: NSObject {
@@ -13,6 +14,7 @@ final class FunctionalTests: NSObject {
         whenInterpreting()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
         thenFeatureASTSAreTheSameAsInCorrispondingFile()
+        
     }
     
     func given(file: String) {

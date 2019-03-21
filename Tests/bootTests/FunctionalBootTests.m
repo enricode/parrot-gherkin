@@ -1,22 +1,11 @@
-#import <XCTest/XCTest.h>
-#import <objc/runtime.h>
-#import "parrotTests-Swift.h"
-
-@interface TestData : NSObject
-
-@property(nonatomic, strong) NSString *featurePath;
-
-@end
+#import "FunctionalBootTests.h"
 
 @implementation TestData
-
-@end
-
-@interface FunctionalBootTests : XCTestCase
-
 @end
 
 NSArray<NSInvocation *> *_invocations;
+NSString * const FEATURE_DIR_ENVIRONMENT_KEY = @"feature_dir";
+
 
 @implementation FunctionalBootTests
 
@@ -26,23 +15,30 @@ NSArray<NSInvocation *> *_invocations;
         _invocations = [FunctionalBootTests createInvocations];
     });
     
+    NSAssert(_invocations.count != 0, @"You must pass `%@` environment variable with feature directory path.", FEATURE_DIR_ENVIRONMENT_KEY);
+    
     return _invocations;
 }
 
 + (NSArray<NSInvocation *> *)createInvocations {
-    NSString *testDataGood = @"testdata/good";
-    NSArray *dir = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:testDataGood error:NULL];
+    NSString *featureDir = [NSProcessInfo.processInfo.environment objectForKey:FEATURE_DIR_ENVIRONMENT_KEY];
+    
+    if (featureDir == nil) {
+        return @[];
+    }
+    
+    NSArray *featureDirectoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:featureDir error:NULL];
     
     NSMutableArray<NSInvocation *> *invocations = [[NSMutableArray alloc] init];
     NSMutableArray<TestData *> *tests = [[NSMutableArray alloc] init];
 
-    [dir enumerateObjectsUsingBlock:^(id file, NSUInteger idx, BOOL *stop) {
+    [featureDirectoryContent enumerateObjectsUsingBlock:^(id file, NSUInteger idx, BOOL *stop) {
         NSString *filename = (NSString *)file;
         NSString *extension = [[filename pathExtension] lowercaseString];
         
         if ([extension isEqualToString:@"feature"]) {
             TestData *testData = [[TestData alloc] init];
-            testData.featurePath = [testDataGood stringByAppendingPathComponent:filename];
+            testData.featurePath = [featureDir stringByAppendingPathComponent:filename];
             
             [tests addObject:testData];
         }
@@ -67,7 +63,8 @@ NSArray<NSInvocation *> *_invocations;
     return invocations;
 }
 
-+ (SEL)addInstanceMethodForTest:(TestData *)testData classSelectorNames:(NSMutableArray<NSString*> *)selectorNames {
++ (void)addInstanceMethodForTest:(TestData *)testData classSelectorNames:(NSMutableArray<NSString*> *)selectorNames {
+    /*
     IMP implementation = imp_implementationWithBlock(^(TestData *testData) {
         [[FunctionalTests new] parseGoodWithFeature:testData.featurePath];
     });
@@ -89,7 +86,7 @@ NSArray<NSInvocation *> *_invocations;
     class_addMethod(self, selector, implementation, types);
     
     return selector;
+     */
 }
-
 
 @end

@@ -1,13 +1,6 @@
-//
-//  FakeLexer.swift
-//  parrot
-//
-//  Created by Enrico Franzelli on 30/12/18.
-//
-
 import Foundation
 @testable import parrot
-
+/*
 class FakeLexer: Lexer {
     let text: String
     let tokens: [Token]
@@ -48,3 +41,4 @@ class FakeLexer: Lexer {
         }
     }
 }
+*/
