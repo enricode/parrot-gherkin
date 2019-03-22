@@ -14,6 +14,10 @@ let package = Package(
         .target(
             name: "parrot",
             dependencies: []
+        ),
+        .testTarget(
+            name: "parrotTests",
+            dependencies: []
         )
     ]
 )

@@ -4,8 +4,6 @@
 @end
 
 NSArray<NSInvocation *> *_invocations;
-NSString * const FEATURE_DIR_ENVIRONMENT_KEY = @"feature_dir";
-
 
 @implementation FunctionalBootTests
 
@@ -15,22 +13,14 @@ NSString * const FEATURE_DIR_ENVIRONMENT_KEY = @"feature_dir";
         _invocations = [FunctionalBootTests createInvocations];
     });
     
-    NSAssert(_invocations.count != 0, @"You must pass `%@` environment variable with feature directory path.", FEATURE_DIR_ENVIRONMENT_KEY);
-    
     return _invocations;
 }
 
 + (NSArray<NSInvocation *> *)createInvocations {
-    NSString *featureDir = [NSProcessInfo.processInfo.environment objectForKey:FEATURE_DIR_ENVIRONMENT_KEY];
-    
-    if (featureDir == nil) {
-        return @[];
-    }
-    
-    NSArray *featureDirectoryContent = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:featureDir error:NULL];
-    
     NSMutableArray<NSInvocation *> *invocations = [[NSMutableArray alloc] init];
     NSMutableArray<TestData *> *tests = [[NSMutableArray alloc] init];
+    
+    NSArray<NSString *> *features = [[NSBundle bundleForClass:[TestData class]] pathsForResourcesOfType:@"feature" inDirectory:nil];
 
     [featureDirectoryContent enumerateObjectsUsingBlock:^(id file, NSUInteger idx, BOOL *stop) {
         NSString *filename = (NSString *)file;

@@ -1,35 +1,22 @@
 Pod::Spec.new do |s|
   s.name             = 'parrot-bdd'
   s.version          = '0.1.0'
-  s.summary          = 'A short description of parrot.'
-
-# This description is used to generate tags and improve search results.
-#   * Think: What does it do? Why did you write it? What is the focus?
-#   * Try to keep it short, snappy and to the point.
-#   * Write the description between the DESC delimiters below.
-#   * Finally, don't worry about the indent, CocoaPods strips it!
-
+  s.summary          = 'An anternative implementation of Cucumber in Swift language.'
   s.description      = <<-DESC
-TODO: Add long description of the pod here.
+    Cucumber is a software tool used by computer programmers for testing other software. It runs automated acceptance tests written in a behavior-driven development (BDD) style. Central to the Cucumber BDD approach is its plain language parser called Gherkin. It allows expected software behaviors to be specified in a logical language that customers can understand.
                        DESC
-
   s.homepage         = 'https://github.com/enricode/parrot'
-  # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'enricode' => 'enrico.franzelli@gmail.com' }
   s.source           = { :git => 'https://github.com/enricode/parrot', :tag => s.version.to_s }
-  # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
-
   s.platform = :osx
-  s.osx.deployment_target = "10.10"
 
-  s.source_files = 'parrot/Classes/**/*'
+  s.ios.deployment_target = '9.0'
+  s.osx.deployment_target = '10.9'
+
+  s.source_files = 'Sources/parrot/**/*'
 
   # s.resource_bundles = {
   #   'parrot' => ['parrot/Assets/*.png']
   # }
-
-  # s.public_header_files = 'Pod/Classes/**/*.h'
-  # s.frameworks = 'Cocoa'
-  # s.dependency 'AFNetworking', '~> 2.3'
 end
