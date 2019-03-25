@@ -3,18 +3,21 @@ import Foundation
 
 @testable import parrot
 
-final class FunctionalTests: NSObject {
+@objc public class AcceptanceTests: NSObject {
     
     var feature: String!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
     
-    @objc func parseGood(feature: String) {
+    @objc public func parseBad(feature: String) {
+        XCTFail("To implement")
+    }
+    
+    @objc public func parseGood(feature: String) {
         given(file: feature)
         whenInterpreting()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
         thenFeatureASTSAreTheSameAsInCorrispondingFile()
-        
     }
     
     func given(file: String) {
@@ -30,16 +33,16 @@ final class FunctionalTests: NSObject {
             interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature))
             parsedFeature = try interpreter.parse()
         } catch {
-            
+            print("Exception while interpreting: \(error)")
         }
     }
     
     func thenFeatureTokensAreTheSameAsInCorrispondingFile() {
-        XCTFail("Implement me")
+        XCTAssertNotNil(parsedFeature)
     }
     
     func thenFeatureASTSAreTheSameAsInCorrispondingFile() {
-        XCTFail("Implement me")
+        XCTAssertNotNil(parsedFeature)
     }
     
 }

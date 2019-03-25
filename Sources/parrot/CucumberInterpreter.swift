@@ -51,7 +51,7 @@ class CucumberInterpreter: Interpreter {
         let titleDesc = try titleDescription()
         let scenarioList = try scenarios()
         
-        guard currentToken == EOF.self else {
+        guard currentToken == EOF() else {
             throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: EOF())
         }
         
@@ -66,23 +66,25 @@ class CucumberInterpreter: Interpreter {
         )
     }
     
-    private func sentence() -> String? {
+    private func sentence() throws -> String? {
         guard let expressionToken = currentToken.type as? Expression else {
             return nil
         }
+        
+        try eat()
         
         return expressionToken.content
     }
     
     private func titleDescription() throws -> (title: String, description: String?) {
-        guard let title = sentence() else {
+        guard let title = try sentence() else {
             throw InterpreterException.titleExpectedNothingFound
         }
         
         if currentToken == StepKeyword.self {
             return (title: title, description: nil)
         } else {
-            return (title: title, description: sentence())
+            return (title: title, description: try sentence())
         }
     }
     
@@ -126,6 +128,10 @@ class CucumberInterpreter: Interpreter {
         
         // SCENARIO KEY
         guard currentToken.isScenarioKeyword else {
+            if tagList.isEmpty {
+                return nil
+            }
+            
             throw InterpreterException.unexpectedTerm(
                 term: currentToken.type,
                 expected: PrimaryKeyword.scenario // "Scenario:, Example:, Scenario Outline:, Scenario Template:"
@@ -170,7 +176,7 @@ class CucumberInterpreter: Interpreter {
         let location = currentToken.location
         
         // title
-        guard let title = sentence() else {
+        guard let title = try sentence() else {
             throw InterpreterException.exampleTableWithoutTitle
         }
         
@@ -245,7 +251,7 @@ class CucumberInterpreter: Interpreter {
         let stepLocation = currentToken.location
         try eat() // keyword
         
-        guard let text = sentence() else {
+        guard let text = try sentence() else {
             throw InterpreterException.textExpectedNothingFound
         }
         

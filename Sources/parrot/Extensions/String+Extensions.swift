@@ -32,7 +32,7 @@ extension NSString {
         return invalidCharacters
     }()
     
-    @objc var c99ExtendedIdentifier: String {
+    @objc public var c99ExtendedIdentifier: String {
         let validComponents = components(separatedBy: NSString.invalidCharacters)
         let result = validComponents.joined(separator: "_")
         

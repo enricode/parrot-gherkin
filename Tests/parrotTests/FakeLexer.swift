@@ -1,5 +1,5 @@
 import Foundation
-@testable import parrot
+
 /*
 class FakeLexer: Lexer {
     let text: String

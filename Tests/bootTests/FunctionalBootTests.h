@@ -3,6 +3,7 @@
 
 @interface TestData : NSObject
 
+@property(nonatomic) BOOL good;
 @property(nonatomic, strong) NSString *featurePath;
 
 @end
