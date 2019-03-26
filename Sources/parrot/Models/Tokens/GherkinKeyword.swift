@@ -68,14 +68,33 @@ struct LocalizableKeywordMatcher<T: GherkinKeyword & CaseIterable & KeywordLocal
 
 struct EOF: TokenType, Equatable {}
 
-struct DocString: GherkinKeyword, Equatable {
-    static var keyCount: Int { return keyword.count }
-    static let keyword = "\"\"\""
+struct DocStringKeyword: GherkinKeyword, Equatable {
+    static var keyCount: Int { return 3 }
+    
+    enum Keyword: String {
+        case doubleQuotes = "\"\"\""
+        case backticks = "```"
+        
+        init?(parsing: String) {
+            if parsing.starts(with: Keyword.doubleQuotes.rawValue) {
+                self = .doubleQuotes
+                return
+            }
+            
+            if parsing.starts(with: Keyword.backticks.rawValue) {
+                self = .backticks
+                return
+            }
+            
+            return nil
+        }
+    }
     
     let mark: String?
+    let keyword: Keyword
     
     var lenght: UInt {
-        return UInt(DocString.keyCount + (mark ?? "").count)
+        return UInt(DocStringKeyword.keyCount + (mark ?? "").count)
     }
 }
 
@@ -114,18 +133,29 @@ enum SecondaryKeyword: GherkinKeyword, Equatable {
         case .tag(let name): return UInt(name.count + 1)
         }
     }
+    
+    func isSameType(as object: Any) -> Bool {
+        guard let other = object as? SecondaryKeyword else {
+            return false
+        }
+        
+        switch (other, self) {
+        case (.pipe, .pipe), (.tag, .tag): return true
+        default: return false
+        }
+    }
 }
 
 struct NextContentMatcher: KeywordMatcher {
     
     func matches(sentence: String) -> GherkinKeyword? {
-        if sentence.starts(with: DocString.keyword) {
-            if sentence.count == DocString.keyCount {
-                return DocString(mark: nil)
-            } else if let mark = sentence.suffix(from: sentence.index(sentence.startIndex, offsetBy: 3)).split(separator: " ").first {
-                return DocString(mark: String(mark))
+        if let docStringsKeyword = DocStringKeyword.Keyword(parsing: sentence) {
+            if sentence.count == DocStringKeyword.keyCount {
+                return DocStringKeyword(mark: nil, keyword: docStringsKeyword)
+            } else if let mark = sentence.suffix(from: sentence.index(sentence.startIndex, offsetBy: DocStringKeyword.keyCount)).split(separator: " ").first {
+                return DocStringKeyword(mark: String(mark), keyword: docStringsKeyword)
             } else {
-                return DocString(mark: nil)
+                return DocStringKeyword(mark: nil, keyword: docStringsKeyword)
             }
         } else if sentence.starts(with: "#") {
             return CommentKeyword(content: String(sentence.suffix(from: sentence.index(after: sentence.startIndex))))
@@ -168,8 +198,29 @@ extension Token {
         return self.type.isSameType(as: SecondaryKeyword.pipe) || self.type is Expression
     }
     
+    var isTagToken: Bool {
+        guard let secondaryKeyword = self.type as? SecondaryKeyword else {
+            return false
+        }
+        
+        switch secondaryKeyword {
+        case .tag:
+            return true
+        default:
+            return false
+        }
+    }
+    
     var isStepKeyword: Bool {
         return self.type is StepKeyword
+    }
+    
+    func isDocStringOf(type: DocStringKeyword.Keyword) -> Bool {
+        guard let docString = self.type as? DocStringKeyword else {
+            return false
+        }
+        
+        return docString.keyword == type
     }
     
 }

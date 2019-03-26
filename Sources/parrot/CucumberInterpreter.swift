@@ -9,22 +9,44 @@ enum InterpreterException: ParrotError {
     case exampleTableWithoutTitle
     case exampleTableWithoutRows
     case expectedDataTableToken
+    
+    case incorrectDataTable
+    case cannotParseFeature
 }
 
 class CucumberInterpreter: Interpreter {    
     
+    enum Mode {
+        case strict
+        case permissive
+    }
+    
     let lexer: Lexer
     
     private var currentToken: Token
-    private var commentsTokens: [Token] = []
+    private let mode: CucumberInterpreter.Mode
+    private var tagsBuffer: [ASTNode<Tag>] = []
+    private(set) var commentsTokens: [Token] = []
     
-    init(lexer: Lexer) throws {
+    init(lexer: Lexer, mode: CucumberInterpreter.Mode = .permissive) throws {
         self.lexer = lexer
+        self.mode = mode
+
         currentToken = try lexer.getNextToken()
     }
     
-    func parse() throws -> ASTNode<Feature> {
-        return try feature()
+    func parse() throws -> ASTNode<Feature>? {
+        let parsedFeature = try feature()
+        
+        if let feature = parsedFeature {
+            let validFeature = try FeatureValidator(mode: mode).validate(object: feature.element)
+            
+            guard validFeature else {
+                throw InterpreterException.cannotParseFeature
+            }
+        }
+        
+        return parsedFeature
     }
     
     private func eat() throws {
@@ -38,11 +60,11 @@ class CucumberInterpreter: Interpreter {
     }
     
     // tags -> FEATURE: -> title_description -> scenarios -> EOF
-    private func feature() throws -> ASTNode<Feature> {
+    private func feature() throws -> ASTNode<Feature>? {
         let tagList = try tags()
         
         guard currentToken == PrimaryKeyword.feature else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: PrimaryKeyword.feature)
+            return nil
         }
         
         let featureLocation = currentToken.location
@@ -56,7 +78,7 @@ class CucumberInterpreter: Interpreter {
         }
         
         return ASTNode(
-            try Feature(
+            Feature(
                 tags: tagList,
                 title: titleDesc.title,
                 description: titleDesc.description,
@@ -76,8 +98,10 @@ class CucumberInterpreter: Interpreter {
         return expressionToken.content
     }
     
-    private func titleDescription() throws -> (title: String, description: String?) {
-        guard let title = try sentence() else {
+    private func titleDescription() throws -> (title: String?, description: String?) {
+        let title = try sentence()
+        
+        if mode == .strict, title == nil {
             throw InterpreterException.titleExpectedNothingFound
         }
         
@@ -90,24 +114,25 @@ class CucumberInterpreter: Interpreter {
     
     // @tag*
     private func tags() throws -> [ASTNode<Tag>] {
-        var tags: [ASTNode<Tag>] = []
+        var tagsList: [ASTNode<Tag>] = []
         
         while true {
-            if let secondaryKeyword = currentToken.type as? SecondaryKeyword,
+            if
+                let secondaryKeyword = currentToken.type as? SecondaryKeyword,
                 case .tag(let name) = secondaryKeyword
             {
                 let node = ASTNode(
                     Tag(tag: name),
                     location: currentToken.location
                 )
-                tags.append(node)
+                tagsList.append(node)
             } else {
-                return tags
+                return tagsList
             }
             try eat()
         }
         
-        return tags
+        return tagsList
     }
     
     // scenario | scenario*
@@ -124,7 +149,13 @@ class CucumberInterpreter: Interpreter {
     // tags -> SCENARIO KEY -> title_description -> steps -> examples
     private func scenario() throws -> ASTNode<Scenario>? {
         // tags
-        let tagList = try tags()
+        let tagList: [ASTNode<Tag>]
+        if tagsBuffer.isEmpty {
+            tagList = try tags()
+        } else {
+            tagList = tagsBuffer
+            tagsBuffer.removeAll()
+        }
         
         // SCENARIO KEY
         guard currentToken.isScenarioKeyword else {
@@ -137,64 +168,77 @@ class CucumberInterpreter: Interpreter {
                 expected: PrimaryKeyword.scenario // "Scenario:, Example:, Scenario Outline:, Scenario Template:"
             )
         }
+        
         let location = currentToken.location
+        let isOutline = currentToken.isScenarioOutlineKey
 
         try eat() // scenario key
         
         // title_description
         let titleDesc = try titleDescription()
 
-        let scenario = try Scenario(
+        let scenario = Scenario(
             tags: tagList,
             title: titleDesc.title,
             description: titleDesc.description,
             steps: try steps(),
-            outline: try outline()
+            outline: isOutline ? (try outline()) : .notOutline
         )
         
         return ASTNode(scenario, location: location)
     }
     
+    // tags* -> (Examples -> DataTable)*
     private func outline() throws -> Outline {
-        if currentToken.isScenarioOutlineKey {
-            guard let exampleTable = try examples() else {
+        var exampleTables: [ASTNode<ExamplesTable>] = []
+        
+        while currentToken.isTagToken || currentToken.isExamplesToken {
+            let tagList = try tags()
+            
+            if currentToken.isScenarioKeyword {
+                tagsBuffer = tagList
+                break
+            }
+            
+            guard let exampleTable = try examples(tags: tagList) else {
                 throw InterpreterException.scenarioOutlineWithoutExamples
             }
-            return Outline.outline(examples: exampleTable)
-        } else {
-            return Outline.notOutline
+            
+            exampleTables.append(exampleTable)
         }
+        
+        return Outline.outline(examples: exampleTables)
     }
     
-    // Examples: -> title -> columns_title -> data_table ->
-    private func examples() throws -> ASTNode<ExamplesTable>? {
+    // Examples: -> title* -> columns_title -> data_table ->
+    private func examples(tags: [ASTNode<Tag>]) throws -> ASTNode<ExamplesTable>? {
         // Examples:
         guard currentToken.isExamplesToken else {
             return nil
         }
         
+        try eat()
+        
         let location = currentToken.location
         
-        // title
-        guard let title = try sentence() else {
-            throw InterpreterException.exampleTableWithoutTitle
-        }
+        let title = try sentence()
         
         // data table
         guard let table = try dataTable() else {
             throw InterpreterException.exampleTableWithoutRows
         }
         
-        return ASTNode(try ExamplesTable(title: title, dataTable: table), location: location)
+        return ASTNode(try ExamplesTable(title: title, tags: tags, dataTable: table), location: location)
     }
     
     // PIPE -> (expression -> PIPE)* ->
-    private func dataTable() throws -> DataTable? {
+    private func dataTable() throws -> ASTNode<DataTable>? {
         guard currentToken == SecondaryKeyword.pipe else {
             return nil
         }
         
         var rows: [ASTNode<DataTable.Row>] = []
+        let location = currentToken.location
         
         // pipe
         try eat()
@@ -226,10 +270,56 @@ class CucumberInterpreter: Interpreter {
                 try eat() // pipe
             }
             
+            if currentToken.location.line != initialLocation.line && currentToken.type.isSameType(as: SecondaryKeyword.pipe) {
+                try eat()
+            }
+            
             rows.append(ASTNode(DataTable.Row(cells: cells), location: initialLocation))
         }
         
-        return try DataTable(rows: rows)
+        let dataTable = try DataTable(rows: rows)
+        
+        guard try DataTableValidator(mode: mode).validate(object: dataTable) else {
+            throw InterpreterException.incorrectDataTable
+        }
+        
+        return ASTNode(dataTable, location: location)
+    }
+    
+    private func docString() throws -> ASTNode<DocString>? {
+        guard let docStringToken = currentToken.type as? DocStringKeyword else {
+            return nil
+        }
+        
+        let initialLocation = currentToken.location
+        try eat()
+        
+        var content = ""
+        
+        while currentToken.type is Expression || !currentToken.isDocStringOf(type: docStringToken.keyword) {
+            if let expression = currentToken.type as? Expression {
+                let leadingWhitespaces = max(currentToken.location.column - initialLocation.column, 0)
+                content += repeatElement(" ", count: leadingWhitespaces) + expression.content
+            } else if let keyword = currentToken.type as? DocStringKeyword {
+                content += keyword.keyword.rawValue
+            }
+            
+            try eat()
+        }
+        
+        guard let docStringKeyword = currentToken.type as? DocStringKeyword else {
+            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: DocStringKeyword(mark: nil, keyword: .doubleQuotes))
+        }
+        
+        try eat()
+        
+        let docString = DocString(
+            mark: docStringToken.mark,
+            content: content,
+            delimiter: docStringKeyword.keyword
+        )
+        
+        return ASTNode(docString, location: initialLocation)
     }
     
     private func steps() throws -> [ASTNode<Step>] {
@@ -242,7 +332,7 @@ class CucumberInterpreter: Interpreter {
         return stepList
     }
     
-    // STEPKEYWORD -> step_text -> (newline -> data_table | doc_string)* ->
+    // STEPKEYWORD -> step_text -> (data_table | doc_string)* ->
     private func step() throws -> ASTNode<Step> {
         guard let stepKeyword = currentToken.type as? StepKeyword else {
             throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: StepKeyword.given)
@@ -255,7 +345,7 @@ class CucumberInterpreter: Interpreter {
             throw InterpreterException.textExpectedNothingFound
         }
         
-        let step = try Step(keyword: stepKeyword, text: text, dataTable: try dataTable())
+        let step = try Step(keyword: stepKeyword, text: text, docString: try docString(), dataTable: try dataTable())
         
         return ASTNode(step, location: stepLocation)
     }

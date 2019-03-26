@@ -171,7 +171,6 @@ class CucumberLexer: Lexer {
                 } else {
                     return Token(Expression(content: String(LexerCharacter.tag.representation)), location)
                 }
- 
             case .pipe:
                 advance()
                 currentContext = .table

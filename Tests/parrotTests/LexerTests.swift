@@ -63,11 +63,11 @@ final class LexerTests: XCTestCase {
         thenTokens(are: [
             Token(StepKeyword.given, Location(column: 1, line: 1)),
             Token(Expression(content: "something with doc string"), Location(column: 7, line: 1)),
-            Token(DocString(mark: "type"), Location(column: 3, line: 2)),
+            Token(DocStringKeyword(mark: "type", keyword: .doubleQuotes), Location(column: 3, line: 2)),
             Token(Expression(content: "with first line indented like this"), Location(column: 3, line: 3)),
             Token(Expression(content: "it should preserve two spaces"), Location(column: 5, line: 4)),
             Token(Expression(content: "and now three"), Location(column: 6, line: 5)),
-            Token(DocString(mark: nil), Location(column: 3, line: 6)),
+            Token(DocStringKeyword(mark: nil, keyword: .doubleQuotes), Location(column: 3, line: 6)),
             Token(EOF(), Location(column: 6, line: 6))
         ])
     }

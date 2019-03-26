@@ -30,7 +30,7 @@ extension Character {
     }
     
     var isQuotes: Bool {
-        return self == "\""
+        return self == "\"" || self == "`"
     }
     
     var isNotSpace: Bool {

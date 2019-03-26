@@ -31,13 +31,9 @@ struct DataTable: AST, Equatable {
     }
     
     init(rows: [ASTNode<Row>]) throws {
-        guard let firstRow = rows.first else {
-            throw DataTableInitializationException.dataTableWithoutValues
-        }
+        let cellsCount = rows.first?.element.cells.count
         
-        let cellsCount = firstRow.element.cells.count
-        
-        try (1...(rows.count-1)).forEach { row in
+        try (0...(rows.count-1)).forEach { row in
             if rows[row].element.cells.count != cellsCount {
                 throw DataTableInitializationException.unmatchingCellsCount(row: row)
             }
