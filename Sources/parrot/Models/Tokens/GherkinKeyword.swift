@@ -180,6 +180,13 @@ extension Token {
         }
     }
     
+    var isRuleKeyword: Bool {
+        guard let primaryKey = self.type as? PrimaryKeyword else {
+            return false
+        }
+        return primaryKey == .rule
+    }
+    
     var isScenarioOutlineKey: Bool {
         guard let primaryKey = self.type as? PrimaryKeyword else {
             return false

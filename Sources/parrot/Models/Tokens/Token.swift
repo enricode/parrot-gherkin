@@ -4,11 +4,11 @@ struct Location: Equatable {
     let column: Int
     let line: Int
     
-    func advancedBy(column: UInt = 0, line: UInt = 0) -> Location {
-        return Location(column: self.column + Int(column), line: self.line + Int(line))
+    func advance() -> Location {
+        return Location(column: self.column + 1, line: self.line)
     }
     
-    static var start: Location = Location(column: 1, line: 1)
+    static var start: Location = Location(column: 0, line: 1)
 }
 
 protocol TokenType {

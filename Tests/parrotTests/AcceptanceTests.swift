@@ -8,9 +8,12 @@ import Foundation
     var feature: String!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
+    var error: Error!
     
     @objc public func parseBad(feature: String) {
-        XCTFail("To implement")
+        given(file: feature)
+        whenInterpreting()
+        thenErrorsAre()
     }
     
     @objc public func parseGood(feature: String) {
@@ -33,16 +36,21 @@ import Foundation
             interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature))
             parsedFeature = try interpreter.parse()
         } catch {
+            self.error = error
             print("Exception while interpreting: \(error)")
         }
     }
     
     func thenFeatureTokensAreTheSameAsInCorrispondingFile() {
-        XCTAssertNotNil(parsedFeature)
+        XCTAssertNil(error)
     }
     
     func thenFeatureASTSAreTheSameAsInCorrispondingFile() {
-        XCTAssertNotNil(parsedFeature)
+        XCTAssertNil(error)
+    }
+    
+    func thenErrorsAre() {
+        XCTAssertNotNil(error)
     }
     
 }

@@ -10,7 +10,7 @@ extension Character {
     }
     
     var isNewLine: Bool {
-        return self == "\u{A}" || self == "\u{B}" || self == "\u{C}" || self == "\u{D}"
+        return self == "\u{A}" || self == "\u{B}" || self == "\u{C}" || self == "\u{D}" || self == "\r\n"
     }
     
     var isTag: Bool {

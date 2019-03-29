@@ -24,23 +24,24 @@ class CucumberLexer: Lexer {
         text = feature
         position = text.startIndex
 
-        advance(positions: 0)
+        updateCurrentChar()
+        advanceCurrentLocation()
     }
     
     private var hasStillCharAhead: Bool {
         return position != text.endIndex
     }
     
-    private func advance(positions: UInt = 1) {
-        position = text.index(position, offsetBy: Int(positions))
-
+    private func updateCurrentChar() {
         if position == text.endIndex {
             currentChar = .none
             currentContext = .normal
         } else {
             currentChar = LexerCharacter(char: text[position])
         }
-        
+    }
+    
+    private func advanceCurrentLocation() {
         if currentChar == .newLine {
             currentLocation = Location(column: 0, line: currentLocation.line + 1)
             
@@ -48,8 +49,23 @@ class CucumberLexer: Lexer {
                 currentContext = .normal
             }
         } else {
-            currentLocation = currentLocation.advancedBy(column: positions)
+            currentLocation = currentLocation.advance()
         }
+    }
+    
+    private func advance() {
+        position = text.index(after: position)
+
+        updateCurrentChar()
+        advanceCurrentLocation()
+    }
+    
+    private func advance(positions: UInt) {
+        guard positions > 0 else {
+            return
+        }
+        
+        (1...positions).forEach { _ in advance() }
     }
     
     private func peek(until condition: (LexerCharacter) -> Bool) -> String? {
@@ -171,9 +187,13 @@ class CucumberLexer: Lexer {
                 } else {
                     return Token(Expression(content: String(LexerCharacter.tag.representation)), location)
                 }
+ 
             case .pipe:
                 advance()
-                currentContext = .table
+                
+                if currentChar != .newLine {
+                    currentContext = .table
+                }
                 
                 return Token(SecondaryKeyword.pipe, location)
             case .generic(_), .colon, .quotes:

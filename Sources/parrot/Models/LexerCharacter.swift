@@ -18,7 +18,7 @@ enum LexerCharacter: Equatable, Hashable {
             self = .none
             return
         }
-        
+
         if char.isSpace {
             self = .whitespace
         } else if char.isColon {

@@ -15,5 +15,6 @@ struct Feature: AST, Equatable {
     let title: String?
     let description: String?
     let scenarios: [ASTNode<Scenario>]
+    let rules: [ASTNode<Rule>]
     let language: FeatureLanguage = .english
 }
