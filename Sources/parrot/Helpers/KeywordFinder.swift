@@ -2,18 +2,28 @@ import Foundation
 
 struct KeywordFinder {
     let line: String
+    let language: FeatureLanguage
     let matchers: [KeywordMatcher]
     
-    init(line: String, matchers: [KeywordMatcher] = Config.matchers) {
+    struct NotFound: Error {}
+    
+    init(line: String, language: FeatureLanguage?, matchers: [KeywordMatcher] = Config.matchers) {
         self.line = line
         self.matchers = matchers
+        self.language = language ?? FeatureLanguage(identifier: "en")
     }
     
-    func findKeyword() -> GherkinKeyword? {
-        guard let matcher = matchers.first(where: { $0.matches(sentence: line) != nil }) else {
-            return nil
+    func findKeyword() -> KeywordMatch? {
+        return matchers.reduce(Optional<KeywordMatch>.none) { currentResult, matcher in
+            guard currentResult == nil else {
+                return currentResult
+            }
+            
+            if let match = matcher.matches(sentence: line, language: language) {
+                return match
+            } else {
+                return nil
+            }
         }
-        
-        return matcher.matches(sentence: line)
     }
 }

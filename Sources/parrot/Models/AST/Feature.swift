@@ -6,8 +6,8 @@ enum FeatureInitializationException: String, ParrotError {
     case emptyDescription
 }
 
-enum FeatureLanguage: String {
-    case english = "en"
+struct FeatureLanguage {
+    let identifier: String
 }
 
 struct Feature: AST, Equatable {
@@ -16,5 +16,4 @@ struct Feature: AST, Equatable {
     let description: String?
     let scenarios: [ASTNode<Scenario>]
     let rules: [ASTNode<Rule>]
-    let language: FeatureLanguage = .english
 }

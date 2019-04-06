@@ -9,6 +9,11 @@ extension String {
     var isDocString: Bool {
         return self == "\"\"\""
     }
+    
+    var trimmed: String {
+        return self.trimmingCharacters(in: .whitespaces)
+    }
+    
 }
 
 extension NSString {

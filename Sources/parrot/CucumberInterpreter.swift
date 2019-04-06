@@ -36,36 +36,26 @@ class CucumberInterpreter: Interpreter {
     }
     
     func parse() throws -> ASTNode<Feature>? {
-        let parsedFeature = try feature()
-        
-        if let feature = parsedFeature {
-            let validFeature = try FeatureValidator(mode: mode).validate(object: feature.element)
-            
-            guard validFeature else {
-                throw InterpreterException.cannotParseFeature
-            }
-        }
-        
-        return parsedFeature
+        return nil
     }
-    
+    /*
     private func eat() throws {
         repeat {
             currentToken = try lexer.getNextToken()
 
-            if currentToken.type is CommentKeyword {
+            if currentToken == .comment {
                 commentsTokens.append(currentToken)
                 try eat()
             }
-        } while currentToken == CommentKeyword.self
+        } while currentToken == .comment
     }
     
     // tags -> FEATURE: -> title_description -> scenarios -> EOF
     private func feature() throws -> ASTNode<Feature>? {
         let tagList = try tags()
         
-        guard currentToken == PrimaryKeyword.feature else {
-            if currentToken.type is EOF {
+        guard currentToken.isFeatureToken else {
+            if currentToken == .eof {
                 return nil
             }
             if commentsTokens.isEmpty && !(currentToken.type is CommentKeyword) {
@@ -398,4 +388,5 @@ class CucumberInterpreter: Interpreter {
         
         return ASTNode(step, location: stepLocation)
     }
+ */
 }

@@ -8,21 +8,25 @@ project = Xcodeproj::Project.open('parrot.xcodeproj')
 
 parrot_target = project.targets.detect { |p| p.display_name == "parrot" }
 parrot_test_target = project.targets.detect { |p| p.display_name == "parrotTests" }
+compile_sources_phase = parrot_test_target.source_build_phase
 
 if parrot_target.nil? or parrot_test_target.nil?
 	raise "No parrot or parrot test target found."
 end
 
+# Add json language files to target
+ref = project.main_group['Sources/parrot/gherkin-languages.json']
+parrot_target.new_copy_files_build_phase.add_file_reference(ref)
+
 # Add NSString+Extensions.swift to Test target too
-#parrot_test_target.add_file_references()
+ref = project.main_group['Sources/parrot/Extensions/String+Extensions.swift']
+compile_sources_phase.add_file_reference(ref)
 
 # Add step to copy "test data" files
 copy_build_phase_good = parrot_test_target.new_copy_files_build_phase
 copy_build_phase_good.dst_path = 'good'
 copy_build_phase_bad = parrot_test_target.new_copy_files_build_phase
 copy_build_phase_bad.dst_path = 'bad'
-
-compile_sources_phase = parrot_test_target.source_build_phase
 
 test_data_group = project.main_group['Tests'].new_group('testData')
 bad_group = test_data_group.new_group('bad')

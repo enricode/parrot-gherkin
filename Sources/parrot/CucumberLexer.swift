@@ -19,6 +19,7 @@ class CucumberLexer: Lexer {
     private var currentChar: LexerCharacter = .none
     private var currentContext: LexerContext = .normal
     private var currentLocation: Location = .start
+    private var currentLanguage: FeatureLanguage?
     
     init(feature: String) {
         text = feature
@@ -110,7 +111,7 @@ class CucumberLexer: Lexer {
             advance()
         }
         
-        return result.trimmingCharacters(in: .whitespaces)
+        return result
     }
     
     private func sentence(limitAt limit: LexerCharacter? = nil) -> String {
@@ -134,17 +135,18 @@ class CucumberLexer: Lexer {
         let location = currentLocation
         
         guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none]) }) else {
-            return Token(EOF(), currentLocation)
+            return Token(.eof, currentLocation)
         }
         
-        let finder = KeywordFinder(line: line)
+        let finder = KeywordFinder(line: line, language: currentLanguage)
         
-        guard let keyword = finder.findKeyword() else {
-            return Token(Expression(content: sentence()), location)
+        guard let match = finder.findKeyword() else {
+            return Token(.expression, value: sentence().trimmed, location)
         }
         
-        advance(positions: keyword.lenght)
-        return Token(keyword, location)
+        advance(positions: UInt(match.value.count))
+        
+        return Token(.keyword(match.keyword), value: match.value, location)
     }
     
     private func genericDataTableParse() -> Token {
@@ -152,15 +154,16 @@ class CucumberLexer: Lexer {
         
         guard currentChar != .pipe else {
             advance()
-            return Token(SecondaryKeyword.pipe, location)
+            return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
         }
         
         guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none, .pipe]) })?.trimmingCharacters(in: .whitespaces) else {
-            return Token(EOF(), currentLocation)
+            return Token(.eof, currentLocation)
         }
         
         advance(positions: UInt(line.count))
-        return Token(Expression(content: line), location)
+        
+        return Token(.expression, value: line.trimmed, location)
     }
     
     func getNextToken() throws -> Token {
@@ -178,16 +181,26 @@ class CucumberLexer: Lexer {
                 continue
             case .comment:
                 advance()
+                let comment = sentence()
+                let trimmed = comment.trimmed
                 
-                return Token(CommentKeyword(content: sentence()), location)
+                if let range = trimmed.range(of: #"\s*language:\s*\S{2,}$"#, options: .regularExpression),
+                    range.lowerBound == trimmed.startIndex, range.upperBound == trimmed.endIndex,
+                    let language = trimmed.components(separatedBy: .whitespaces).last
+                {
+                    currentLanguage = FeatureLanguage(identifier: language)
+                    return Token(.language(language), value: "#" + comment, location)
+                } else {
+                    return Token(.comment(comment.trimmingCharacters(in: .whitespacesAndNewlines)), value: "#" + comment, location)
+                }
             case .tag:
                 if hasStillCharAhead {
                     advance()
-                    return Token(SecondaryKeyword.tag(name: word()), location)
+                    let tag = word()
+                    return Token(.keyword(SecondaryKeyword.tag(name: tag)), value: "@\(tag)", location)
                 } else {
-                    return Token(Expression(content: String(LexerCharacter.tag.representation)), location)
+                    return Token(.expression, value: String(LexerCharacter.tag.representation), location)
                 }
- 
             case .pipe:
                 advance()
                 
@@ -195,7 +208,7 @@ class CucumberLexer: Lexer {
                     currentContext = .table
                 }
                 
-                return Token(SecondaryKeyword.pipe, location)
+                return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
             case .generic(_), .colon, .quotes:
                 return genericParse()
             case .tab:
@@ -205,7 +218,7 @@ class CucumberLexer: Lexer {
             }
         }
         
-        return Token(EOF(), currentLocation)
+        return Token(.eof, currentLocation)
     }
     
     func parse() throws -> [Token] {
@@ -218,8 +231,8 @@ class CucumberLexer: Lexer {
         while true {
             let nextToken = try getNextToken()
             tokens.append(nextToken)
-            
-            if nextToken.type is EOF {
+
+            if nextToken == .eof {
                 break
             }
         }
