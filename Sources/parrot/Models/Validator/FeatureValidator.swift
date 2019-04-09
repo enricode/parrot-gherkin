@@ -2,13 +2,7 @@ import Foundation
 
 struct FeatureValidator: Validator {
     
-    let mode: CucumberInterpreter.Mode
-    
-    func validate(object: Feature) throws -> Bool {
-        guard mode != .permissive else {
-            return true
-        }
-        
+    func validate(object: Feature) throws -> Bool {        
         if let title = object.title, title.isEmpty {
             throw FeatureInitializationException.emptyTitle
         }

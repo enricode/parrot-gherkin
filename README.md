@@ -22,7 +22,7 @@ pod 'parrot'
 
 ## Author
 
-flenrico, enrico.franzelli@flex.com
+flenrico, enrico.franzelli@gmail.com
 
 ## License
 
