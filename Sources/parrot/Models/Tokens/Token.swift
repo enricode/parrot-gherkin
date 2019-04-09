@@ -1,6 +1,6 @@
 import Foundation
 
-struct Token {
+struct Token: Equatable {
     let type: TokenType
     let value: String?
     let location: Location
@@ -13,6 +13,10 @@ struct Token {
     
     static func ==(lhs: Token, rhs: TokenType) -> Bool {
         return lhs.type == rhs
+    }
+    
+    static func ==(lhs: Token, rhs: Token) -> Bool {
+        return lhs.type == rhs.type && lhs.value == rhs.value && lhs.location == rhs.location
     }
 }
 

@@ -6,20 +6,27 @@ import Foundation
 @objc public class AcceptanceTests: NSObject {
     
     var feature: String!
+    var exportedTokens: String!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
     var error: Error!
     
     @objc public func parseBad(feature: String) {
         given(file: feature)
+        
+        whenExportingLexes()
+        thenExportedTokensAreVoid()
+        
         whenInterpreting()
-        thenErrorsAre()
+        thenErrorsAreSameAsJSONs()
+        thenParsedFeatureIsNil()
     }
     
     @objc public func parseGood(feature: String) {
         given(file: feature)
-        whenInterpreting()
+        whenExportingLexes()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
+        whenInterpreting()
         thenFeatureASTSAreTheSameAsInCorrispondingFile()
     }
     
@@ -41,16 +48,33 @@ import Foundation
         }
     }
     
+    func whenExportingLexes() {
+        do {
+            let tokenExporter = try TokenExporter(lexer: CucumberLexer(feature: feature))
+            exportedTokens = try tokenExporter.export()
+            exportedTokens!.split(separator: "\n").forEach({ print($0) })
+        } catch {
+            print("Exception while exporting tokens")
+        }
+    }
+    
+    func thenExportedTokensAreVoid() {
+        XCTAssertNil(exportedTokens)
+    }
+    
     func thenFeatureTokensAreTheSameAsInCorrispondingFile() {
-        XCTAssertNil(error)
+        
     }
     
     func thenFeatureASTSAreTheSameAsInCorrispondingFile() {
         XCTAssertNil(error)
     }
     
-    func thenErrorsAre() {
-        XCTAssertNotNil(error)
+    func thenErrorsAreSameAsJSONs() {
+        // TBD
     }
     
+    func thenParsedFeatureIsNil() {
+        
+    }
 }
