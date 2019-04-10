@@ -2,6 +2,7 @@ import Foundation
 
 enum TokenType: Equatable {
     case comment(String)
+    case empty
     case eof
     case expression
     case keyword(GherkinKeyword)

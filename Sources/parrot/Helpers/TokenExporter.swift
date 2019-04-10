@@ -18,15 +18,17 @@ class TokenExporter {
         while !line.isEmpty {
             result += line.getTokenLine() + "\n"
             
-            (1..<currentToken.location.line - lastLineNumber).forEach { line in
-                result += "(\(lastLineNumber + line):1)Empty://" + "\n"
+            if currentToken.location.line != lastLineNumber {
+                (1..<currentToken.location.line - lastLineNumber).forEach { line in
+                    result += "(\(lastLineNumber + line):1)Empty://" + "\n"
+                }
             }
             
             lastLineNumber = currentToken.location.line
             line = try getLine()
         }
         
-        result.append("EOF")
+        result.append("EOF\n")
         
         return result
     }
@@ -56,7 +58,7 @@ extension Collection where Element == Token {
                 tokenDescription += token.lineDescription + ":"
             }
             
-            tokenDescription += token.value ?? ""
+            tokenDescription += token.tokenValue
             
             return line + tokenDescription + "/"
         }
@@ -74,6 +76,7 @@ extension Token {
         switch type {
         case .comment: return "Comment"
         case .eof: return "EOF"
+        case .empty: return ""
         case .expression: return "Other"
         case .keyword(let keyword):
             switch keyword {
@@ -98,27 +101,30 @@ extension Token {
         case .language: return "Language"
         }
     }
+    
+    fileprivate var tokenValue: String {
+        let stringValue = value ?? ""
+        
+        switch type {
+        case .comment: return stringValue
+        case .empty: return ""
+        case .eof: return stringValue
+        case .expression: return stringValue
+        case .keyword(let keyword):
+            switch keyword {
+            case is PrimaryKeyword:
+                return stringValue.replacingOccurrences(of: ":", with: "")
+            case is SecondaryKeyword:
+                switch keyword as! SecondaryKeyword {
+                case .pipe: return "TableRow"
+                case .tag: return "\(location.column):\(stringValue)"
+                }
+            case is StepKeyword:
+                return stringValue + " "
+            default:
+                return "Other"
+            }
+        case .language: return "Language"
+        }
+    }
 }
-
-/*
- (1:1)FeatureLine:Feature/DataTables/
- (2:1)Empty://
- (3:3)ScenarioLine:Scenario/minimalistic/
- (4:5)StepLine:Given /a simple data table/
- (5:7)TableRow://9:foo,15:bar
- (6:7)TableRow://9:boz,15:boo
- (7:5)StepLine:And /a data table with a single cell/
- (8:7)TableRow://9:foo
- (9:5)StepLine:And /a data table with different fromatting/
- (10:7)TableRow://11:foo,15:bar,23:boz
- (11:5)StepLine:And /a data table with an empty cell/
- (12:7)TableRow://8:foo,12:,13:boz
- (13:5)StepLine:And /a data table with comments and newlines inside/
- (14:7)TableRow://9:foo,15:bar
- (15:1)Empty://
- (16:7)TableRow://9:boz,16:boo
- (17:1)Comment:/      # this is a comment/
- (18:7)TableRow://9:boz2,16:boo2
- EOF
-
- */

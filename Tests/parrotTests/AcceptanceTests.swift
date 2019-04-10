@@ -5,7 +5,7 @@ import Foundation
 
 @objc public class AcceptanceTests: NSObject {
     
-    var feature: String!
+    var feature: TestFeature!
     var exportedTokens: String!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
@@ -31,16 +31,12 @@ import Foundation
     }
     
     func given(file: String) {
-        do {
-            feature = try String(contentsOfFile: file)
-        } catch {
-            XCTFail("Cannot read feature.")
-        }
+        feature = TestFeature(path: file)
     }
     
     func whenInterpreting() {
         do {
-            interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature))
+            interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature.content))
             parsedFeature = try interpreter.parse()
         } catch {
             self.error = error
@@ -50,9 +46,8 @@ import Foundation
     
     func whenExportingLexes() {
         do {
-            let tokenExporter = try TokenExporter(lexer: CucumberLexer(feature: feature))
-            exportedTokens = try tokenExporter.export()
-            exportedTokens!.split(separator: "\n").forEach({ print($0) })
+            let cucumberScanner = CucumberScanner(lexer: CucumberLexer(feature: feature.content))
+            exportedTokens = try cucumberScanner.stringLines()
         } catch {
             print("Exception while exporting tokens")
         }
@@ -63,7 +58,7 @@ import Foundation
     }
     
     func thenFeatureTokensAreTheSameAsInCorrispondingFile() {
-        
+        XCTAssertEqual(feature.tokens, exportedTokens, comparedStrings(stringA: feature.tokens, stringB: exportedTokens))
     }
     
     func thenFeatureASTSAreTheSameAsInCorrispondingFile() {
@@ -76,5 +71,13 @@ import Foundation
     
     func thenParsedFeatureIsNil() {
         
+    }
+    
+    func comparedStrings(stringA: String, stringB: String) -> String {
+        let comparison = zip(stringA.split(separator: "\n"), stringB.split(separator: "\n")).reduce("", { error, pair in
+            return error + "A: \(pair.0)\nB: \(pair.1)\n\n"
+        })
+        
+        return "\n\n - Compared tokens --------------\n" + comparison
     }
 }

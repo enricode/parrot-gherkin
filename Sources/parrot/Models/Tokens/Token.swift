@@ -86,6 +86,13 @@ extension Token {
         return false
     }
     
+    var isPrimaryKeyword: Bool {
+        if case .keyword(let keyword) = type {
+            return keyword is PrimaryKeyword
+        }
+        return false
+    }
+    
     var isTagToken: Bool {
         return false
     }
