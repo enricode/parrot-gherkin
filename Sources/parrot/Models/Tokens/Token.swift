@@ -94,10 +94,16 @@ extension Token {
     }
     
     var isTagToken: Bool {
+        if case .keyword(let keyword) = type, let secondaryKeyword = keyword as? SecondaryKeyword, case .tag(_) = secondaryKeyword {
+            return true
+        }
         return false
     }
     
     var isExamplesToken: Bool {
+        if case .keyword(let keyword) = type, let primaryKeyword = keyword as? PrimaryKeyword {
+            return primaryKeyword == .examples
+        }
         return false
     }
     

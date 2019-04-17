@@ -92,21 +92,21 @@ struct Line {
         }
         
         if firstToken.isComment {
+            items = []
             text = tokens.stringValue
-        } else {
-            text = tokens.suffix(from: 1).stringValue
-        }
-        
-        if firstToken.isPipeKeyword {
+        } else if firstToken.isPipeKeyword {
             items = tokens.filter({ $0.isExpression }).map {
                 Item(column: $0.location.column, text: $0.value ?? "")
             }
+            text = nil
         } else if firstToken.isTagToken {
             items = tokens.filter({ $0.isTagToken }).map {
                 Item(column: $0.location.column, text: $0.value ?? "")
             }
+            text = nil
         } else {
             items = []
+            text = tokens.suffix(from: 1).stringValue
         }
     }
     
@@ -123,6 +123,8 @@ struct Line {
         if let key = keyword {
             if key.isStepKeyword {
                 keywordIdentifier = (key.value ?? "") + " "
+            } else if key.isTagToken || key.isPipeKeyword {
+                keywordIdentifier = ""
             } else if key.isPrimaryKeyword {
                 keywordIdentifier = (key.value ?? "").replacingOccurrences(of: ":", with: "")
             } else {
