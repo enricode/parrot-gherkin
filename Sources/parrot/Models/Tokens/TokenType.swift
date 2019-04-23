@@ -18,4 +18,12 @@ enum TokenType: Equatable {
             return false
         }
     }
+    
+    static func ==<T: GherkinKeyword & Equatable>(lhs: TokenType, rhs: T) -> Bool {
+        guard case .keyword(let keyword) = lhs, let typedKeyword = keyword as? T else {
+            return false
+        }
+        
+        return typedKeyword == rhs
+    }
 }

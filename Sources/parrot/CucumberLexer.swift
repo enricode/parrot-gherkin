@@ -11,7 +11,32 @@ class CucumberLexer: Lexer {
     enum LexerContext {
         case normal
         case table
+        case docstring(offset: DocStringOffset, startedWith: DocStringKeyword.Keyword)
+        
+        var isTable: Bool {
+            if case .table = self { return true }
+            return false
+        }
+        
+        var isDocstring: Bool {
+            if case .docstring(_, _) = self { return true }
+            return false
+        }
     }
+    
+    enum DocStringOffset {
+        case none
+        case offset(Int)
+        
+        var intValue: Int {
+            switch self {
+            case .none: return 0
+            case .offset(let value): return value
+            }
+        }
+    }
+    
+    private var docStringsLeadingOffset: DocStringOffset = .none
     
     let text: String
     private(set) var position: String.Index
@@ -46,7 +71,7 @@ class CucumberLexer: Lexer {
         if currentChar == .newLine {
             currentLocation = Location(column: 0, line: currentLocation.line + 1)
             
-            if currentContext == .table {
+            if currentContext.isTable {
                 currentContext = .normal
             }
         } else {
@@ -115,7 +140,7 @@ class CucumberLexer: Lexer {
     }
     
     private func sentence(limitAt limit: LexerCharacter? = nil) -> String {
-        return extractAllAvoiding(chars: [.none, .newLine], limitAt: limit)
+        return  extractAllAvoiding(chars: [.none, .newLine], limitAt: limit)
     }
     
     private func word(limitAt limit: LexerCharacter? = nil) -> String {
@@ -124,7 +149,7 @@ class CucumberLexer: Lexer {
     
     private func genericParse() -> Token {
         switch currentContext {
-        case .normal:
+        case .normal, .docstring(_):
             return genericKeywordParse()
         case .table:
             return genericDataTableParse()
@@ -145,6 +170,14 @@ class CucumberLexer: Lexer {
         }
         
         advance(positions: UInt(match.value.count))
+        
+        if let docStringKeyword = match.keyword as? DocStringKeyword {
+            if currentContext.isDocstring {
+                currentContext = .normal
+            } else {
+                currentContext = .docstring(offset: .none, startedWith: docStringKeyword.keyword)
+            }
+        }
         
         return Token(.keyword(match.keyword), value: match.value, location)
     }
@@ -168,25 +201,55 @@ class CucumberLexer: Lexer {
     
     func getNextToken() throws -> Token {
         while currentChar != .none {
-            let location = currentLocation
+            var location = currentLocation
+            
+            if currentChar == .whitespace {
+                skip(characterSet: [.whitespace])
+                continue
+            }
+            
+            if case .docstring(let offset, let start) = currentContext, !currentChar.isQuotes {
+                if currentChar == .newLine {
+                    advance()
+                    skip(characterSet: [.whitespace])
+                    if location.line < currentLocation.line {
+                        return Token(.expression, location.resettingColumn)
+                    }
+                    location = currentLocation
+                }
+                if currentChar.isQuotes {
+                    if peek(until: { $0.isQuotes }) == start.rawValue {
+                        currentContext = .normal
+                        return Token(.keyword(DocStringKeyword(mark: nil, keyword: start)), value: sentence(), location)
+                    }
+                } else if currentChar == .none {
+                    return Token(.eof, currentLocation)
+                }
+                
+                let value = sentence().replacingOccurrences(of: "\\\"", with: "\"")
+                
+                switch offset {
+                case .none:
+                    currentContext = .docstring(offset: .offset(location.column), startedWith: start)
+                    return Token(.expression, value: value, location.resettingColumn)
+                case .offset(let offset):
+                    let value = value.padded(leading: max(location.column - offset, 0))
+                    return Token(.expression, value: value, location.resettingColumn)
+                }
+            }
             
             switch currentChar {
-            case .whitespace:
-                skip(characterSet: [.whitespace])
-                
-                continue
             case .newLine:
                 skip(characterSet: [.newLine])
-                
                 continue
             case .comment:
                 advance()
                 let comment = sentence()
                 let trimmed = comment.trimmed
                 
-                if let range = trimmed.range(of: #"\s*language:\s*\S{2,}$"#, options: .regularExpression),
+                if let range = trimmed.range(of: #"\s*language\s*:\s*\S*\s*$"#, options: .regularExpression),
                     range.lowerBound == trimmed.startIndex, range.upperBound == trimmed.endIndex,
-                    let language = trimmed.components(separatedBy: .whitespaces).last
+                    let language = trimmed.components(separatedBy: ":").last?.trimmed
                 {
                     currentLanguage = FeatureLanguage(identifier: language)
                     return Token(.language(language), value: "#" + comment, location)
@@ -213,7 +276,7 @@ class CucumberLexer: Lexer {
                 return genericParse()
             case .tab:
                 advance()
-            case .none:
+            case .none, .whitespace:
                 fatalError("This should never happen")
             }
         }

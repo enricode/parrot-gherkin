@@ -21,12 +21,12 @@ final class LexerTests: XCTestCase {
     }
     
     func testNewLines() {
-        given(input: "\n\nFeature: A\n  Given\n  ")
+        given(input: "\n\nFeature: A\n  Given \n  ")
         whenLexing()
         thenTokens(are: [
             Token(.keyword(PrimaryKeyword.feature), value: "Feature:", Location(column: 1, line: 3)),
             Token(.expression, value: "A", Location(column: 10, line: 3)),
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 3, line: 4)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 3, line: 4)),
             Token(.eof, Location(column: 3, line: 5))
         ])
     }
@@ -54,21 +54,53 @@ final class LexerTests: XCTestCase {
         given(input: """
             Given something with doc string
               \"""type
-              with first line indented like this
+              Given first line indented like this
                 it should preserve two spaces
                  and now three
+             nothing if negative offset
+
+              same when indented... the same
               \"""
+            And something else
             """)
         whenLexing()
         thenTokens(are: [
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 1, line: 1)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 1, line: 1)),
             Token(.expression, value: "something with doc string", Location(column: 7, line: 1)),
             Token(.keyword(DocStringKeyword(mark: "type", keyword: .doubleQuotes)), value: "\"\"\"type", Location(column: 3, line: 2)),
-            Token(.expression, value: "with first line indented like this", Location(column: 3, line: 3)),
-            Token(.expression, value: "it should preserve two spaces", Location(column: 5, line: 4)),
-            Token(.expression, value: "and now three", Location(column: 6, line: 5)),
-            Token(.keyword(DocStringKeyword(mark: nil, keyword: .doubleQuotes)), value: "\"\"\"", Location(column: 3, line: 6)),
-            Token(.eof, Location(column: 6, line: 6))
+            Token(.expression, value: "Given first line indented like this", Location(column: 1, line: 3)),
+            Token(.expression, value: "  it should preserve two spaces", Location(column: 1, line: 4)),
+            Token(.expression, value: "   and now three", Location(column: 1, line: 5)),
+            Token(.expression, value: "nothing if negative offset", Location(column: 1, line: 6)),
+            Token(.expression, Location(column: 1, line: 7)),
+            Token(.expression, value: "same when indented... the same", Location(column: 1, line: 8)),
+            Token(.keyword(DocStringKeyword(mark: nil, keyword: .doubleQuotes)), value: "\"\"\"", Location(column: 3, line: 9)),
+            Token(.keyword(StepKeyword.and), value: "And ", Location(column: 1, line: 10)),
+            Token(.expression, value: "something else", Location(column: 5, line: 10)),
+            Token(.eof, Location(column: 19, line: 10))
+        ])
+    }
+    
+    func testDocStringWithTrickySeparators() {
+        given(input: """
+            Given something with doc string
+              \"""type
+              ```
+              hello
+              \"""
+            And hello
+            """)
+        whenLexing()
+        thenTokens(are: [
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 1, line: 1)),
+            Token(.expression, value: "something with doc string", Location(column: 7, line: 1)),
+            Token(.keyword(DocStringKeyword(mark: "type", keyword: .doubleQuotes)), value: "\"\"\"type", Location(column: 3, line: 2)),
+            Token(.expression, value: "```", Location(column: 1, line: 3)),
+            Token(.expression, value: "hello", Location(column: 1, line: 4)),
+            Token(.keyword(DocStringKeyword(mark: nil, keyword: .doubleQuotes)), value: "\"\"\"", Location(column: 3, line: 5)),
+            Token(.keyword(StepKeyword.and), value: "And ", Location(column: 1, line: 6)),
+            Token(.expression, value: "hello", Location(column: 5, line: 6)),
+            Token(.eof, Location(column: 10, line: 6))
         ])
     }
     
@@ -88,11 +120,11 @@ final class LexerTests: XCTestCase {
         given(input: "Given hello\nWhen action\nThen happiness")
         whenLexing()
         thenTokens(are: [
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 1, line: 1)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 1, line: 1)),
             Token(.expression, value: "hello", Location(column: 7, line: 1)),
-            Token(.keyword(StepKeyword.when), value: "When", Location(column: 1, line: 2)),
+            Token(.keyword(StepKeyword.when), value: "When ", Location(column: 1, line: 2)),
             Token(.expression, value: "action", Location(column: 6, line: 2)),
-            Token(.keyword(StepKeyword.then), value: "Then", Location(column: 1, line: 3)),
+            Token(.keyword(StepKeyword.then), value: "Then ", Location(column: 1, line: 3)),
             Token(.expression, value: "happiness", Location(column: 6, line: 3)),
             Token(.eof, Location(column: 15, line: 3))
         ])
@@ -109,7 +141,7 @@ final class LexerTests: XCTestCase {
             Token(.keyword(PrimaryKeyword.scenarioOutline), value: "Scenario Outline:", Location(column: 1, line: 1)),
             Token(.expression, value: "Title of scenario", Location(column: 19, line: 1)),
             Token(.expression, value: "Description of scenario", Location(column: 19, line: 2)),
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 5, line: 3)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 5, line: 3)),
             Token(.expression, value: "initial condition", Location(column: 11, line: 3)),
             Token(.eof, Location(column: 28, line: 3))
         ])
@@ -161,7 +193,7 @@ final class LexerTests: XCTestCase {
             Token(.comment("another comment"), value: "#another comment", Location(column: 1, line: 5)),
             Token(.keyword(PrimaryKeyword.scenario), value: "Scenario:", Location(column: 1, line: 6)),
             Token(.expression, value: "Hello", Location(column: 11, line: 6)),
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 5, line: 7)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 5, line: 7)),
             Token(.expression, value: "this", Location(column: 11, line: 7)),
             Token(.comment("a step comment"), value: "# a step comment", Location(column: 1, line: 8)),
             Token(.eof, Location(column: 17, line: 8))
@@ -186,10 +218,10 @@ final class LexerTests: XCTestCase {
             Token(.keyword(PrimaryKeyword.scenario), value: "Eksempel:", Location(column: 5, line: 4)),
             Token(.expression, value: "Ordmaker starter et spill", Location(column: 15, line: 4)),
             
-            Token(.keyword(StepKeyword.when), value: "Når", Location(column: 9, line: 5)),
+            Token(.keyword(StepKeyword.when), value: "Når ", Location(column: 9, line: 5)),
             Token(.expression, value: "Ordmaker starter et spill", Location(column: 13, line: 5)),
             
-            Token(.keyword(StepKeyword.then), value: "Så", Location(column: 9, line: 6)),
+            Token(.keyword(StepKeyword.then), value: "Så ", Location(column: 9, line: 6)),
             Token(.expression, value: "må Ordmaker vente på at Gjetter blir med", Location(column: 12, line: 6)),
             
             Token(.eof, Location(column: 52, line: 6))
@@ -206,7 +238,7 @@ final class LexerTests: XCTestCase {
             """)
         whenLexing()
         thenTokens(are: [
-            Token(.keyword(StepKeyword.given), value: "Given", Location(column: 1, line: 1)),
+            Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 1, line: 1)),
             Token(.expression, value: "this table:", Location(column: 7, line: 1)),
             
             Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 5, line: 2)),
@@ -246,7 +278,12 @@ final class LexerTests: XCTestCase {
     }
     
     private func thenTokens(are expectedTokens: [Token]) {
-        if tokens.differs(from: expectedTokens) {
+        if let differentTokens = tokens.differs(from: expectedTokens) {
+            print("Different token encountered:")
+            print(differentTokens.0)
+            print(differentTokens.1)
+            print("")
+            
             for (index, token) in zip(expectedTokens, tokens).enumerated() {
                 print("\(String(format: "%03d", index + 1)) EXPECTED: \(token.0)")
                 print("    ACTUAL:   \(token.1)")
@@ -279,7 +316,7 @@ final class LexerTests: XCTestCase {
 
 extension Collection where Element == Token {
     
-    func differs(from tokens: [Element]) -> Bool {
+    func differs(from tokens: [Element]) -> (Element, Element)? {
         let notEqual = zip(self, tokens).first { tokenPair in
             let (tk1, tk2) = tokenPair
             
@@ -290,7 +327,7 @@ extension Collection where Element == Token {
             return String(describing: tk1) != String(describing: tk2)
         }
         
-        return notEqual != nil
+        return notEqual
     }
     
 }

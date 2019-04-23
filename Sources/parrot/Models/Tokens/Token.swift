@@ -11,6 +11,13 @@ struct Token: Equatable {
         self.location = location
     }
     
+    var keyword: GherkinKeyword? {
+        if case .keyword(let keyword) = type {
+            return keyword
+        }
+        return nil
+    }
+    
     static func ==(lhs: Token, rhs: TokenType) -> Bool {
         return lhs.type == rhs
     }
@@ -38,7 +45,7 @@ extension Token {
     }
     
     var isFeatureKeyword: Bool {
-        if case .keyword(let keyword) = type {
+        if let keyword = keyword {
             return (keyword as? PrimaryKeyword) == .feature
         }
         return false
@@ -52,17 +59,14 @@ extension Token {
     }
     
     var isRuleKeyword: Bool {
-        if case .keyword(let keyword) = type {
-            return (keyword as? PrimaryKeyword) == .rule
+        if let keyword = keyword as? PrimaryKeyword {
+            return keyword == .rule
         }
         return false
     }
     
     var isDocStringKeyword: Bool {
-        if case .keyword(let keyword) = type {
-            return keyword is DocStringKeyword
-        }
-        return false
+        return keyword is DocStringKeyword
     }
     
     var isScenarioKeyword: Bool {
@@ -108,6 +112,28 @@ extension Token {
     }
     
     func isDocStringOf(type: DocStringKeyword.Keyword) -> Bool {
-        return false
+        guard let docStringKeyword = keyword as? DocStringKeyword else {
+            return false
+        }
+        return docStringKeyword.keyword == type
     }
+}
+
+extension Collection where Element == Token {
+    
+    var value: String {
+        guard !isEmpty else {
+            return ""
+        }
+        return compactMap({ $0.value }).joined(separator: " ")
+    }
+    
+    var valueExcludingFirst: String {
+        guard count > 1 else {
+            return ""
+        }
+        
+        return dropFirst().value
+    }
+    
 }

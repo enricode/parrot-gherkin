@@ -9,7 +9,7 @@ extension GherkinKeyword where Self: KeywordLocalizable & RawRepresentable, Self
     func keywords(language: FeatureLanguage) -> [String] {
         let translations = LanguageDictionary(language: language.identifier).translations(keyword: self.rawValue)
         
-        return translations.map { $0.trimmingCharacters(in: .whitespaces) + suffix.stringValue }
+        return translations.map { $0 + suffix.stringValue }
     }
     
 }

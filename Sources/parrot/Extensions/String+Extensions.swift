@@ -10,8 +10,16 @@ extension String {
         return self == "\"\"\""
     }
     
+    var removingColon: String {
+        return replacingOccurrences(of: ":", with: "")
+    }
+    
     var trimmed: String {
         return self.trimmingCharacters(in: .whitespaces)
+    }
+    
+    func padded(leading: Int) -> String {
+        return String(repeatElement(" ", count: leading)) + self
     }
     
 }

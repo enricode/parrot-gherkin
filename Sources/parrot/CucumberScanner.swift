@@ -1,182 +1,10 @@
 import Foundation
 
-struct Line {
-    
-    enum LineType: String {
-        case backgroundLine = "BackgroundLine"
-        case comment = "Comment"
-        case docStringSeparator = "DocStringSeparator"
-        case empty = "Empty"
-        case other = "Other"
-        case examplesLine = "ExamplesLine"
-        case featureLine = "FeatureLine"
-        case language = "Language"
-        case ruleLine = "RuleLine"
-        case scenarioLine = "ScenarioLine"
-        case stepLine = "StepLine"
-        case tableRow = "TableRow"
-        case tagLine = "TagLine"
-        
-        init?(token: TokenType?) {
-            guard let inspectionToken = token else {
-                return nil
-            }
-            
-            switch inspectionToken {
-            case .comment:
-                self = .comment
-            case .expression:
-                self = .other
-            case .language:
-                self = .language
-            case .keyword(let keyword):
-                switch keyword {
-                case is DocStringKeyword:
-                    self = .docStringSeparator
-                case is PrimaryKeyword:
-                    switch keyword as! PrimaryKeyword {
-                    case .examples:
-                        self = .examplesLine
-                    case .feature:
-                        self = .featureLine
-                    case .scenario, .scenarioOutline:
-                        self = .scenarioLine
-                    case .rule:
-                        self = .ruleLine
-                    case .background:
-                        self = .backgroundLine
-                    }
-                case is SecondaryKeyword:
-                    switch keyword as! SecondaryKeyword {
-                    case .pipe:
-                        self = .tableRow
-                    case .tag:
-                        self = .tagLine
-                    }
-                case is StepKeyword:
-                    self = .stepLine
-                default:
-                    return nil
-                }
-            default:
-                return nil
-            }
-        }
-    }
-    
-    struct Item {
-        let column: Int
-        let text: String
-    }
-    
-    let tokens: [Token]
-    
-    let type: LineType
-    let keyword: Token?
-    let text: String?
-    let items: [Item]
-    
-    init?(tokens: [Token]) {
-        self.tokens = tokens
-        
-        guard let firstToken = tokens.first else {
-            return nil
-        }
-        
-        type = LineType(token: firstToken.type) ?? .empty
-        
-        if case .keyword(_) = firstToken.type {
-            keyword = firstToken
-        } else {
-            keyword = nil
-        }
-        
-        if firstToken.isComment {
-            items = []
-            text = tokens.stringValue
-        } else if firstToken.isPipeKeyword {
-            items = tokens.filter({ $0.isExpression }).map {
-                Item(column: $0.location.column, text: $0.value ?? "")
-            }
-            text = nil
-        } else if firstToken.isTagToken {
-            items = tokens.filter({ $0.isTagToken }).map {
-                Item(column: $0.location.column, text: $0.value ?? "")
-            }
-            text = nil
-        } else {
-            items = []
-            text = tokens.suffix(from: 1).stringValue
-        }
-    }
-    
-    var formatToken: String {
-        guard let location = location else {
-            return ""
-        }
-        
-        guard tokens.first?.type != .eof else {
-            return "EOF\n"
-        }
-        
-        let keywordIdentifier: String
-        if let key = keyword {
-            if key.isStepKeyword {
-                keywordIdentifier = (key.value ?? "") + " "
-            } else if key.isTagToken || key.isPipeKeyword {
-                keywordIdentifier = ""
-            } else if key.isPrimaryKeyword {
-                keywordIdentifier = (key.value ?? "").replacingOccurrences(of: ":", with: "")
-            } else {
-                keywordIdentifier = key.value ?? ""
-            }
-        } else {
-            keywordIdentifier = ""
-        }
-        
-        let outputPieces: [String] = [
-            "(",
-            String(location.line),
-            ":",
-            String(location.column),
-            ")",
-            type.rawValue,
-            ":",
-            keywordIdentifier,
-            "/",
-            (text ?? ""),
-            "/",
-            items.formatToken()
-        ]
-                
-        return outputPieces.joined(separator: "")
-    }
-    
-    fileprivate var location: Location? {
-        return tokens.first?.location
-    }
-}
-
-extension Collection where Element == Line.Item {
-    
-    fileprivate func formatToken() -> String {
-        let line = map { "\($0.column):\($0.text)" }
-        return line.joined(separator: ",")
-    }
-    
-}
-
-extension Collection where Element == Token {
-    
-    fileprivate var stringValue: String {
-        return map({ $0.value ?? "" }).joined(separator: " ")
-    }
-    
-}
-
 class CucumberScanner {
 
     typealias TokensLine = [Token]
+    typealias Line = ScannerElementDescriptor
+    typealias InitializableLine = ScannerElementDescriptor & ScannerElementLineTokenInitializable
     
     let lexer: Lexer
 
@@ -187,7 +15,60 @@ class CucumberScanner {
     func parseLines() throws -> [Int: Line] {
         let tokens = try lexer.parse()
 
-        let rawLines: [TokensLine] = tokens.reduce(into: [TokensLine()]) { lines, token in
+        let rawLines = tokensSplitByLines(with: tokens)
+        
+        let rows = rawLines
+            .compactMap { parseLine(with: $0) }
+            .map { ($0.location.line, $0) }
+        
+        var dictionaryRows = Dictionary(uniqueKeysWithValues: rows)
+        
+        if !rows.isEmpty {
+            (1...(dictionaryRows.keys.max() ?? 1)).forEach { index in
+                if !dictionaryRows.keys.contains(index) {
+                    dictionaryRows[index] = EmptyScannerElement(location: Location(column: 1, line: index))
+                }
+            }
+        }
+        
+        return dictionaryRows
+    }
+    
+    private func parseLine(with tokens: [Token]) -> Line? {
+        guard let firstToken = tokens.first, !firstToken.isEOF else {
+            return nil
+        }
+        
+        let chainOfResponsibilityElements: [InitializableLine.Type] = [
+            BackgroundLineScannerElement.self,
+            ExamplesLineScannerElement.self,
+            FeatureLineScannerElement.self,
+            RuleScannerElement.self,
+            ScenarioLineScannerElement.self,
+            StepLineScannerElement.self,
+            LanguageScannerElement.self,
+            CommentScannerElement.self,
+            DocStringSeparatorScannerElement.self,
+            TagLineScannerElement.self,
+            TableRowScannerElement.self,
+            OtherScannerElement.self // Leave as latest
+        ]
+        
+        var scannerElement: Line?
+        
+        for scannerElementType in chainOfResponsibilityElements {
+            scannerElement = scannerElementType.init(tokens: tokens)
+            
+            if scannerElement != nil {
+                break
+            }
+        }
+        
+        return scannerElement ?? EmptyScannerElement(location: firstToken.location)
+    }
+    
+    private func tokensSplitByLines(with tokens: [Token]) -> [TokensLine] {
+        return tokens.reduce(into: [TokensLine()]) { lines, token in
             guard let lastToken = lines.last?.last else {
                 lines.append([token])
                 return
@@ -201,20 +82,6 @@ class CucumberScanner {
                 lines.append(lastLine)
             }
         }
-        
-        let rows = rawLines
-            .compactMap { Line(tokens: $0) }
-            .map { ($0.location?.line ?? -1, $0) }
-        
-        var dictionaryRows = Dictionary(uniqueKeysWithValues: rows)
-        
-        (1...(dictionaryRows.keys.max() ?? 1)).forEach { index in
-            if !dictionaryRows.keys.contains(index) {
-                dictionaryRows[index] = Line(tokens: [Token(.empty, Location(column: 1, line: index))])
-            }
-        }
-        
-        return dictionaryRows
     }
     
     func stringLines() throws -> String {
@@ -222,7 +89,9 @@ class CucumberScanner {
             lineA.key < lineB.key
         }
         
-        return sortedLines.map({ $0.value.formatToken }).joined(separator: "\n")
+        let lines = sortedLines.map({ $0.value.elementDescription }) + ["EOF"]
+        
+        return lines.joined(separator: "\n") + "\n"
     }
     
 }
