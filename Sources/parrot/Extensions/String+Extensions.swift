@@ -14,6 +14,12 @@ extension String {
         return replacingOccurrences(of: ":", with: "")
     }
     
+    var removingEscape: String {
+        return self
+        return replacingOccurrences(of: "\\|", with: "|")
+            .replacingOccurrences(of: "\\\\n", with: "\\n")
+    }
+    
     var trimmed: String {
         return self.trimmingCharacters(in: .whitespaces)
     }

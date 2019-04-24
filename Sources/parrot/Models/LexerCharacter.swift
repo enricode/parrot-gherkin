@@ -5,6 +5,7 @@ enum LexerCharacter: Equatable, Hashable {
     case comment
     case pipe
     case newLine
+    case slash
     case tab
     case tag
     case whitespace
@@ -37,6 +38,8 @@ enum LexerCharacter: Equatable, Hashable {
             self = .whitespace
         } else if char.isQuotes {
             self = .quotes(char)
+        } else if char.isSlash {
+            self = .slash
         } else {
             self = .generic(char)
         }
@@ -48,6 +51,7 @@ enum LexerCharacter: Equatable, Hashable {
         case .comment: return "#"
         case .pipe: return "|"
         case .newLine: return "\n"
+        case .slash: return "\\"
         case .tab: return "\t"
         case .tag: return "@"
         case .whitespace: return " "

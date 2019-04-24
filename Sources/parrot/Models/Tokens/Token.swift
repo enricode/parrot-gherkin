@@ -136,4 +136,22 @@ extension Collection where Element == Token {
         return dropFirst().value
     }
     
+    func fillWithEmptyExpressionsBetweenDoublePipes() -> [Token] {
+        return reduce([]) { tokens, token in
+            guard let lastToken = tokens.last else {
+                return [token]
+            }
+            
+            switch (lastToken.isPipeKeyword, token.isPipeKeyword) {
+            case (true, true):
+                return tokens + [Token(.expression, lastToken.location.advance())]
+            case (true, false), (false, true):
+                return tokens + [token]
+            case (false, false):
+                print("Found two expressions between pipes, this should not be possible.")
+                return tokens + [token]
+            }
+        }
+    }
+    
 }

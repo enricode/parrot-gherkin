@@ -46,6 +46,10 @@ class CucumberLexer: Lexer {
     private var currentLocation: Location = .start
     private var currentLanguage: FeatureLanguage?
     
+    private var previousChar: LexerCharacter? {
+        return .none
+    }
+    
     init(feature: String) {
         text = feature
         position = text.startIndex
@@ -140,7 +144,7 @@ class CucumberLexer: Lexer {
     }
     
     private func sentence(limitAt limit: LexerCharacter? = nil) -> String {
-        return  extractAllAvoiding(chars: [.none, .newLine], limitAt: limit)
+        return extractAllAvoiding(chars: [.none, .newLine], limitAt: limit)
     }
     
     private func word(limitAt limit: LexerCharacter? = nil) -> String {
@@ -166,7 +170,7 @@ class CucumberLexer: Lexer {
         let finder = KeywordFinder(line: line, language: currentLanguage)
         
         guard let match = finder.findKeyword() else {
-            return Token(.expression, value: sentence().trimmed, location)
+            return expression(value: sentence().trimmed, location: location)
         }
         
         advance(positions: UInt(match.value.count))
@@ -190,13 +194,45 @@ class CucumberLexer: Lexer {
             return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
         }
         
-        guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none, .pipe]) })?.trimmingCharacters(in: .whitespaces) else {
+        var lastCharacter: LexerCharacter?
+        let seekValue: ((LexerCharacter) -> Bool) = { character in
+            if character.isOne(of: [.newLine, .none]) {
+                return false
+            }
+            if let last = lastCharacter, character == .pipe, last == .slash {
+                return true
+            } else if character == .pipe {
+                return false
+            }
+            
+            lastCharacter = character
+
+            return true
+        }
+        
+        guard let line = peek(until: seekValue)?.trimmingCharacters(in: .whitespaces) else {
             return Token(.eof, currentLocation)
         }
         
         advance(positions: UInt(line.count))
         
-        return Token(.expression, value: line.trimmed, location)
+        return expression(value: line.trimmed, location: location)
+    }
+    
+    private func expression(value: String?, location: Location) -> Token {
+        let expressionValue: String?
+        
+        if let value = value {
+            if currentContext.isTable {
+                expressionValue = value.removingEscape
+            } else {
+                expressionValue = value
+            }
+        } else {
+            expressionValue = nil
+        }
+        
+        return Token(.expression, value: expressionValue, location)
     }
     
     func getNextToken() throws -> Token {
@@ -213,7 +249,7 @@ class CucumberLexer: Lexer {
                     advance()
                     skip(characterSet: [.whitespace])
                     if location.line < currentLocation.line {
-                        return Token(.expression, location.resettingColumn)
+                        return expression(value: nil, location: location.resettingColumn)
                     }
                     location = currentLocation
                 }
@@ -231,10 +267,10 @@ class CucumberLexer: Lexer {
                 switch offset {
                 case .none:
                     currentContext = .docstring(offset: .offset(location.column), startedWith: start)
-                    return Token(.expression, value: value, location.resettingColumn)
+                    return expression(value: value, location: location.resettingColumn)
                 case .offset(let offset):
                     let value = value.padded(leading: max(location.column - offset, 0))
-                    return Token(.expression, value: value, location.resettingColumn)
+                    return expression(value: value, location: location.resettingColumn)
                 }
             }
             
@@ -254,7 +290,7 @@ class CucumberLexer: Lexer {
                     currentLanguage = FeatureLanguage(identifier: language)
                     return Token(.language(language), value: "#" + comment, location)
                 } else {
-                    return Token(.comment(comment.trimmingCharacters(in: .whitespacesAndNewlines)), value: "#" + comment, location)
+                    return Token(.comment(trimmed), value: ("#" + comment).padded(leading: location.column - 1), location)
                 }
             case .tag:
                 if hasStillCharAhead {
@@ -262,7 +298,7 @@ class CucumberLexer: Lexer {
                     let tag = word()
                     return Token(.keyword(SecondaryKeyword.tag(name: tag)), value: "@\(tag)", location)
                 } else {
-                    return Token(.expression, value: String(LexerCharacter.tag.representation), location)
+                    return expression(value: String(LexerCharacter.tag.representation), location: location)
                 }
             case .pipe:
                 advance()
@@ -272,7 +308,7 @@ class CucumberLexer: Lexer {
                 }
                 
                 return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
-            case .generic(_), .colon, .quotes:
+            case .generic(_), .colon, .quotes, .slash:
                 return genericParse()
             case .tab:
                 advance()

@@ -31,7 +31,7 @@ class CucumberScanner {
             }
         }
         
-        return dictionaryRows
+        return dictionaryRows.convertEmptyToOtherIfPreviousWasOtherType()
     }
     
     private func parseLine(with tokens: [Token]) -> Line? {
@@ -43,7 +43,7 @@ class CucumberScanner {
             BackgroundLineScannerElement.self,
             ExamplesLineScannerElement.self,
             FeatureLineScannerElement.self,
-            RuleScannerElement.self,
+            RuleLineScannerElement.self,
             ScenarioLineScannerElement.self,
             StepLineScannerElement.self,
             LanguageScannerElement.self,
@@ -92,6 +92,25 @@ class CucumberScanner {
         let lines = sortedLines.map({ $0.value.elementDescription }) + ["EOF"]
         
         return lines.joined(separator: "\n") + "\n"
+    }
+    
+}
+
+extension Dictionary where Key == Int, Value == CucumberScanner.Line {
+    
+    func convertEmptyToOtherIfPreviousWasOtherType() -> Dictionary<Int, CucumberScanner.Line> {
+        var result = Dictionary<Int, CucumberScanner.Line>()
+        
+        for (idx, line) in self where idx > 0 {
+            if let emptyLine = line as? EmptyScannerElement,
+                self[idx - 1] is OtherScannerElement {
+                result[idx] = OtherScannerElement(text: "", location: emptyLine.location)
+            } else {
+                result[idx] = line
+            }
+        }
+        
+        return result
     }
     
 }

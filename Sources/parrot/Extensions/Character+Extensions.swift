@@ -5,6 +5,10 @@ extension Character {
         return self == "\u{20}" || isTab
     }
     
+    var isSlash: Bool {
+        return self == "\\"
+    }
+    
     var isTab: Bool {
         return self == "\u{9}"
     }

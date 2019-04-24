@@ -1,9 +1,9 @@
 import Foundation
 
-struct RuleScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+struct RuleLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
     let location: Location
     
-    static let typeIdentifier: String = "Rule"
+    static let typeIdentifier: String = "RuleLine"
     let keywordIdentifier: String
     let text: String
     

@@ -8,12 +8,22 @@ struct TableRowScannerElement: ScannerElementDescriptor, ScannerElementLineToken
     static let typeIdentifier: String = "TableRow"
     
     init?(tokens: [Token]) {
-        guard let firstToken = tokens.first, firstToken.isPipeKeyword else {
+        guard
+            let firstToken = tokens.first, firstToken.isPipeKeyword,
+            let lastToken = tokens.last, lastToken.isPipeKeyword
+        else {
             return nil
         }
         
+        if tokens.first(where: { $0.value?.contains("æ") ?? false }) != nil {
+            print(tokens)
+        }
+        
         location = firstToken.location
-        items = tokens.filter({ $0.isExpression }).map {
+        
+        let values = tokens.fillWithEmptyExpressionsBetweenDoublePipes()
+        
+        items = values.filter({ $0.isExpression }).map {
             ScannerElementChildItem(location: $0.location, value: $0.value ?? "")
         }
     }

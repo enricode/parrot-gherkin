@@ -11,7 +11,7 @@ struct LanguageScannerElement: ScannerElementLineTokenInitializable, ScannerElem
             return nil
         }
         
-        location = Location(column: 1, line: firstToken.location.line)
+        location = firstToken.location
         text = langId
     }
 }

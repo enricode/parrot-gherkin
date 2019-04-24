@@ -6,12 +6,17 @@ struct OtherScannerElement: ScannerElementDescriptor, ScannerElementLineTokenIni
     static let typeIdentifier: String = "Other"
     let text: String
 
+    init(text: String, location: Location) {
+        self.text = text
+        self.location = location
+    }
+    
     init?(tokens: [Token]) {
         guard let firstToken = tokens.first else {
             return nil
         }
         
-        location = firstToken.location
-        text = tokens.value
+        self.init(text: tokens.value.padded(leading: firstToken.location.column - 1),
+                  location: firstToken.location.resettingColumn)
     }
 }
