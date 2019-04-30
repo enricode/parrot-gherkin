@@ -229,13 +229,15 @@ final class LexerTests: XCTestCase {
     }
 
     func testDataTable() {
-        given(input: """
+        given(input: #"""
             Given this table:
                 | title of column | second column |
                 | data 1          |data 3         |
                 | ||
-                | data 4|
-            """)
+                | \|æ\\n     | \o\no\\\|
+                | \\\|a\\\\n | ø\\\nø\\|
+
+            """#)
         whenLexing()
         thenTokens(are: [
             Token(.keyword(StepKeyword.given), value: "Given ", Location(column: 1, line: 1)),
@@ -258,10 +260,18 @@ final class LexerTests: XCTestCase {
             Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 8, line: 4)),
             
             Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 5, line: 5)),
-            Token(.expression, value: "data 4", Location(column: 7, line: 5)),
-            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 13, line: 5)),
+            Token(.expression, value: "|æ\\n", Location(column: 7, line: 5)),
+            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 18, line: 5)),
+            Token(.expression, value: "\\o\no\\\\", Location(column: 20, line: 5)),
+            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 28, line: 5)),
             
-            Token(.eof, Location(column: 14, line: 5))
+            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 5, line: 6)),
+            Token(.expression, value: "\\|a\\\\n", Location(column: 7, line: 6)),
+            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 18, line: 6)),
+            Token(.expression, value: "ø\\\nø\\", Location(column: 20, line: 6)),
+            Token(.keyword(SecondaryKeyword.pipe), value: "|", Location(column: 28, line: 6)),
+            
+            Token(.eof, Location(column: 1, line: 7))
         ])
     }
     

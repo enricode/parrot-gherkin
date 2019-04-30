@@ -23,6 +23,9 @@ import Foundation
     }
     
     @objc public func parseGood(feature: String) {
+        if !feature.contains("escaped_pipes") {
+            return
+        }
         given(file: feature)
         whenExportingLexes()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
@@ -74,8 +77,8 @@ import Foundation
     }
     
     func comparedStrings(stringA: String, stringB: String) -> String {
-        let comparison = zip(stringA.split(separator: "\n"), stringB.split(separator: "\n")).reduce("", { error, pair in
-            return error + "A: \(pair.0)\nB: \(pair.1)\n\n"
+        let comparison = zip(stringA.split(separator: "("), stringB.split(separator: "(")).reduce("", { error, pair in
+            return error + "A: (\(pair.0)B: (\(pair.1)\n\n"
         })
         
         return "\n\n - Compared tokens --------------\n" + comparison

@@ -15,10 +15,6 @@ struct TableRowScannerElement: ScannerElementDescriptor, ScannerElementLineToken
             return nil
         }
         
-        if tokens.first(where: { $0.value?.contains("æ") ?? false }) != nil {
-            print(tokens)
-        }
-        
         location = firstToken.location
         
         let values = tokens.fillWithEmptyExpressionsBetweenDoublePipes()

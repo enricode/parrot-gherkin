@@ -98,6 +98,20 @@ class CucumberLexer: Lexer {
         (1...positions).forEach { _ in advance() }
     }
     
+    private func peek() -> LexerCharacter {
+        guard position != text.endIndex else {
+            return .none
+        }
+        
+        let peekPosition = text.index(after: position)
+        
+        guard peekPosition != text.endIndex else {
+            return .none
+        }
+        
+        return LexerCharacter(char: text[peekPosition])
+    }
+    
     private func peek(until condition: (LexerCharacter) -> Bool) -> String? {
         var offset: String.IndexDistance = 0
         var conditionResult: Bool = true
@@ -214,9 +228,17 @@ class CucumberLexer: Lexer {
             return Token(.eof, currentLocation)
         }
         
-        advance(positions: UInt(line.count))
+        advance(positions: UInt(line.count - 1))
         
-        return expression(value: line.trimmed, location: location)
+        var value = line.trimmed
+        
+        if currentChar == .pipe, peek().isOne(of: [.none, .newLine]) {
+            value.removeLast()
+        } else {
+            advance(positions: 1)
+        }
+        
+        return expression(value: value, location: location)
     }
     
     private func expression(value: String?, location: Location) -> Token {
