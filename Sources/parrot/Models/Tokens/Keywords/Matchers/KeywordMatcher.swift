@@ -6,5 +6,5 @@ struct KeywordMatch {
 }
 
 protocol KeywordMatcher {
-    func matches(sentence: String, language: FeatureLanguage) -> KeywordMatch?
+    func matches(sentence: String, language: FeatureLanguage) throws -> KeywordMatch?
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct BackgroundLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+struct BackgroundLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor, FirstLevelScannerElement {
     let location: Location
     
     static let typeIdentifier: String = "BackgroundLine"

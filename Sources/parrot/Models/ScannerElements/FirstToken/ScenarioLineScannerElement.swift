@@ -1,6 +1,6 @@
 import Foundation
 
-struct ScenarioLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+struct ScenarioLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor, FirstLevelScannerElement {
     let location: Location
     
     static let typeIdentifier: String = "ScenarioLine"

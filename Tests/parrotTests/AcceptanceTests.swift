@@ -6,16 +6,30 @@ import Foundation
 @objc public class AcceptanceTests: NSObject {
     
     var feature: TestFeature!
+    var parseResult: Result<String, Error>! {
+        didSet {
+            guard let result = parseResult else {
+                return
+            }
+            switch result {
+            case .failure(let error):
+                errors = (error as! CucumberScanner.ParseErrors).errors
+            case .success(let parsed):
+                exportedTokens = parsed
+            }
+        }
+    }
     var exportedTokens: String!
+    var error: Error!
+    var errors: [Error]!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
-    var error: Error!
     
     @objc public func parseBad(feature: String) {
         given(file: feature)
-        
         whenExportingLexes()
         thenExportedTokensAreVoid()
+        thenErrorsAreSameAsJSONs()
         
         /*whenInterpreting()
         thenErrorsAreSameAsJSONs()
@@ -23,9 +37,6 @@ import Foundation
     }
     
     @objc public func parseGood(feature: String) {
-        if !feature.contains("escaped_pipes") {
-            return
-        }
         given(file: feature)
         whenExportingLexes()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
@@ -39,8 +50,8 @@ import Foundation
     
     func whenInterpreting() {
         do {
-            interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature.content))
-            parsedFeature = try interpreter.parse()
+            /*interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature.content))
+            parsedFeature = try interpreter.parse()*/
         } catch {
             self.error = error
             print("Exception while interpreting: \(error)")
@@ -48,12 +59,8 @@ import Foundation
     }
     
     func whenExportingLexes() {
-        do {
-            let cucumberScanner = CucumberScanner(lexer: CucumberLexer(feature: feature.content))
-            exportedTokens = try cucumberScanner.stringLines()
-        } catch {
-            print("Exception while exporting tokens")
-        }
+        let cucumberScanner = CucumberScanner(lexer: CucumberLexer(feature: feature.content))
+        parseResult = cucumberScanner.stringLines()
     }
     
     func thenExportedTokensAreVoid() {
@@ -69,7 +76,8 @@ import Foundation
     }
     
     func thenErrorsAreSameAsJSONs() {
-        // TBD
+        XCTAssertNotNil(errors)
+        //XCTAssertFalse(errors.isEmpty, "Errors is empty")
     }
     
     func thenParsedFeatureIsNil() {

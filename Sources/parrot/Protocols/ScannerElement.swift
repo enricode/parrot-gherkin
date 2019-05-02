@@ -1,6 +1,6 @@
 import Foundation
 
-protocol ScannerElementLineTokenInitializable {
+protocol ScannerElementLineTokenInitializable: ScannerElement {
     init?(tokens: [Token])
 }
 
@@ -20,6 +20,7 @@ protocol ScannerElementDescriptor {
     var keywordIdentifier: String { get }
     var text: String { get }
     var items: [ScannerElementChildItem] { get }
+    var elementDescription: String { get }
 }
 
 extension ScannerElementDescriptor {

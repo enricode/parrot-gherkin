@@ -16,20 +16,20 @@ enum InterpreterException: ParrotError {
 
 class CucumberInterpreter: Interpreter {    
     
-    let lexer: Lexer
+    let scanner: Scanner
     
     private var currentToken: Token
     private var tagsBuffer: [ASTNode<Tag>] = []
     private(set) var commentsTokens: [Token] = []
     
-    init(lexer: Lexer) throws {
-        self.lexer = lexer
-
-        currentToken = try lexer.getNextToken()
+    init(scanner: Scanner) throws {
+        self.scanner = scanner
+        currentToken = Token(.expression, .start)
+        //currentToken = try lexer.getNextToken()
     }
     
     func parse() throws -> ASTNode<Feature>? {
-        let parsedFeature = try feature()
+        //let parsedFeature = try feature()
         
         /*if let feature = parsedFeature {
             let validFeature = try FeatureValidator(mode: mode).validate(object: feature.element)
@@ -39,9 +39,10 @@ class CucumberInterpreter: Interpreter {
             }
         }*/
         
-        return parsedFeature
+        //return parsedFeature
+        return nil
     }
-    
+    /*
     private func eat() throws {
         repeat {
             currentToken = try lexer.getNextToken()
@@ -385,5 +386,6 @@ class CucumberInterpreter: Interpreter {
         
         return ASTNode(step, location: stepLocation)
     }
+     */
 
 }

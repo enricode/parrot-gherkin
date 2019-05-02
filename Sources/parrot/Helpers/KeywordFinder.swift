@@ -13,13 +13,13 @@ struct KeywordFinder {
         self.language = language ?? FeatureLanguage(identifier: "en")
     }
     
-    func findKeyword() -> KeywordMatch? {
-        return matchers.reduce(Optional<KeywordMatch>.none) { currentResult, matcher in
+    func findKeyword() throws -> KeywordMatch? {
+        return try matchers.reduce(Optional<KeywordMatch>.none) { currentResult, matcher in
             guard currentResult == nil else {
                 return currentResult
             }
             
-            if let match = matcher.matches(sentence: line, language: language) {
+            if let match = try matcher.matches(sentence: line, language: language) {
                 return match
             } else {
                 return nil

@@ -165,16 +165,16 @@ class CucumberLexer: Lexer {
         return extractAllAvoiding(chars: [.none, .whitespace, .newLine], limitAt: limit)
     }
     
-    private func genericParse() -> Token {
+    private func genericParse() throws -> Token {
         switch currentContext {
         case .normal, .docstring(_):
-            return genericKeywordParse()
+            return try genericKeywordParse()
         case .table:
             return genericDataTableParse()
         }
     }
     
-    private func genericKeywordParse() -> Token {
+    private func genericKeywordParse() throws -> Token {
         let location = currentLocation
         
         guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none]) }) else {
@@ -183,7 +183,7 @@ class CucumberLexer: Lexer {
         
         let finder = KeywordFinder(line: line, language: currentLanguage)
         
-        guard let match = finder.findKeyword() else {
+        guard let match = try finder.findKeyword() else {
             return expression(value: sentence().trimmed, location: location)
         }
         
@@ -331,7 +331,7 @@ class CucumberLexer: Lexer {
                 
                 return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
             case .generic(_), .colon, .quotes, .slash:
-                return genericParse()
+                return try genericParse()
             case .tab:
                 advance()
             case .none, .whitespace:

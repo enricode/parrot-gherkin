@@ -1,10 +1,14 @@
 import Foundation
 
+enum LanguageDictionaryInitException: Error {
+    case invalidLanguage(String)
+}
+
 struct LanguageDictionary {
     let language: String
     let dictionary: [String: Any]
     
-    init(language: String) {
+    init(language: String) throws {
         self.language = language
         
         let bundle = Bundle(for: CucumberLexer.self)
@@ -22,9 +26,7 @@ struct LanguageDictionary {
         }
         
         guard let dictionary = languagesJSON[language] as? [String: Any] else {
-            print("Cannot get translations")
-            self.dictionary = [:]
-            return
+            throw LanguageDictionaryInitException.invalidLanguage(language)
         }
         
         self.dictionary = dictionary
