@@ -2,7 +2,7 @@ import Foundation
 
 struct NextContentMatcher: KeywordMatcher {
     
-    func matches(sentence: String, language: FeatureLanguage) throws -> KeywordMatch? {
+    func matches(sentence: String, language: FeatureLanguage) -> KeywordMatch? {
         if let docStringKeyword = DocStringKeyword.Keyword(parsing: sentence) {
             let keyword = extractDocStringKeyword(from: sentence, keyword: docStringKeyword)
             return KeywordMatch(keyword: keyword, value: docStringKeyword.rawValue + (keyword.mark ?? ""))

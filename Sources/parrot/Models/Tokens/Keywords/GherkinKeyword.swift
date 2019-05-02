@@ -14,7 +14,7 @@ enum GherkinSuffix {
 
 protocol GherkinKeyword {
     var suffix: GherkinSuffix { get }
-    func keywords(language: FeatureLanguage) throws -> [String]
+    func keywords(language: FeatureLanguage) -> [String]
 }
 
 extension GherkinKeyword {
@@ -22,7 +22,7 @@ extension GherkinKeyword {
         return .noSuffix
     }
     
-    func keywords(language: FeatureLanguage) throws -> [String] {
+    func keywords(language: FeatureLanguage) -> [String] {
         return []
     }
 }

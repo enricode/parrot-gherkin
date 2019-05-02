@@ -6,10 +6,6 @@ enum FeatureInitializationException: String, ParrotError {
     case emptyDescription
 }
 
-struct FeatureLanguage {
-    let identifier: String
-}
-
 struct Feature: AST, Equatable {
     let tags: [ASTNode<Tag>]
     let title: String?

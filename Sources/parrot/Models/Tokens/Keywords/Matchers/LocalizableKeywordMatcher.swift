@@ -2,8 +2,8 @@ import Foundation
 
 struct LocalizableKeywordMatcher<T: GherkinKeyword & CaseIterable>: KeywordMatcher {
     
-    func matches(sentence: String, language: FeatureLanguage) throws -> KeywordMatch? {
-        let keywords: [(keyword: T, matches: [String])] = try T.allCases.map { ($0, try $0.keywords(language: language)) }
+    func matches(sentence: String, language: FeatureLanguage) -> KeywordMatch? {
+        let keywords: [(keyword: T, matches: [String])] = T.allCases.map { ($0, $0.keywords(language: language)) }
         
         let matchedKeyword = keywords.reduce(Optional<(k: GherkinKeyword, v: String)>.none, { result, keyword in
             guard result == nil else {

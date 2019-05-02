@@ -1,11 +1,5 @@
 import Foundation
 
-enum LexerExceptions: ParrotError {
-    case cannotPeekUntilNotExistentChar(char: Character)
-    case cannotAdvanceUntilNotExistentChar(char: Character)
-    case unexpectedEOFWhileParsingDocString(docString: String)
-}
-
 class CucumberLexer: Lexer {
     
     enum LexerContext {
@@ -48,6 +42,12 @@ class CucumberLexer: Lexer {
     
     private var previousChar: LexerCharacter? {
         return .none
+    }
+    
+    convenience init(feature: FeatureFile) throws {
+        let text = try feature.contentOfFeature()
+        
+        self.init(feature: text)
     }
     
     init(feature: String) {
@@ -165,16 +165,16 @@ class CucumberLexer: Lexer {
         return extractAllAvoiding(chars: [.none, .whitespace, .newLine], limitAt: limit)
     }
     
-    private func genericParse() throws -> Token {
+    private func genericParse() -> Token {
         switch currentContext {
         case .normal, .docstring(_):
-            return try genericKeywordParse()
+            return genericKeywordParse()
         case .table:
             return genericDataTableParse()
         }
     }
     
-    private func genericKeywordParse() throws -> Token {
+    private func genericKeywordParse() -> Token {
         let location = currentLocation
         
         guard let line = peek(until: { $0.isNotOne(of: [.newLine, .none]) }) else {
@@ -183,7 +183,7 @@ class CucumberLexer: Lexer {
         
         let finder = KeywordFinder(line: line, language: currentLanguage)
         
-        guard let match = try finder.findKeyword() else {
+        guard let match = finder.findKeyword() else {
             return expression(value: sentence().trimmed, location: location)
         }
         
@@ -309,7 +309,7 @@ class CucumberLexer: Lexer {
                     range.lowerBound == trimmed.startIndex, range.upperBound == trimmed.endIndex,
                     let language = trimmed.components(separatedBy: ":").last?.trimmed
                 {
-                    currentLanguage = FeatureLanguage(identifier: language)
+                    currentLanguage = try FeatureLanguage(language: language)
                     return Token(.language(language), value: "#" + comment, location)
                 } else {
                     return Token(.comment(trimmed), value: ("#" + comment).padded(leading: location.column - 1), location)
@@ -331,7 +331,7 @@ class CucumberLexer: Lexer {
                 
                 return Token(.keyword(SecondaryKeyword.pipe), value: "|", location)
             case .generic(_), .colon, .quotes, .slash:
-                return try genericParse()
+                return genericParse()
             case .tab:
                 advance()
             case .none, .whitespace:

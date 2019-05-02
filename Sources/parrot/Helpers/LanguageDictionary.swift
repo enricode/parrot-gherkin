@@ -4,7 +4,7 @@ enum LanguageDictionaryInitException: Error {
     case invalidLanguage(String)
 }
 
-struct LanguageDictionary {
+struct FeatureLanguage {
     let language: String
     let dictionary: [String: Any]
     
