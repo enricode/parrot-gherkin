@@ -1,7 +1,7 @@
 import Foundation
 
 struct TagLineScannerElement: ScannerElementDescriptor, ScannerElementLineTokenInitializable {
-    
+    let tokens: [Token]
     let location: Location
     let items: [ScannerElementChildItem]
 
@@ -12,6 +12,7 @@ struct TagLineScannerElement: ScannerElementDescriptor, ScannerElementLineTokenI
             return nil
         }
         
+        self.tokens = tokens
         location = firstToken.location
         items = tokens.filter({ $0.isTagToken }).map {
             ScannerElementChildItem(location: $0.location, value: $0.value ?? "")

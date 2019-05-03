@@ -2,6 +2,7 @@ import Foundation
 
 struct LanguageScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
     let location: Location
+    let tokens: [Token]
     
     static let typeIdentifier: String = "Language"
     let text: String
@@ -11,6 +12,7 @@ struct LanguageScannerElement: ScannerElementLineTokenInitializable, ScannerElem
             return nil
         }
         
+        self.tokens = tokens
         location = firstToken.location
         text = langId
     }

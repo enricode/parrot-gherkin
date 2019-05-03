@@ -1,7 +1,7 @@
 import Foundation
 
 struct TableRowScannerElement: ScannerElementDescriptor, ScannerElementLineTokenInitializable {
-    
+    let tokens: [Token]
     let location: Location
     let items: [ScannerElementChildItem]
     
@@ -14,6 +14,8 @@ struct TableRowScannerElement: ScannerElementDescriptor, ScannerElementLineToken
         else {
             return nil
         }
+        
+        self.tokens = tokens
         
         location = firstToken.location
         

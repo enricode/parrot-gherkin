@@ -1,6 +1,7 @@
 import Foundation
 
-struct BackgroundLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor, FirstLevelScannerElement {
+struct BackgroundLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+    let tokens: [Token]
     let location: Location
     
     static let typeIdentifier: String = "BackgroundLine"
@@ -12,6 +13,7 @@ struct BackgroundLineScannerElement: ScannerElementLineTokenInitializable, Scann
             return nil
         }
         
+        self.tokens = tokens
         location = firstToken.location
         keywordIdentifier = firstToken.value?.removingColon ?? ""
         text = tokens.valueExcludingFirst

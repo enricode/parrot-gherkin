@@ -1,6 +1,7 @@
 import Foundation
 
 struct CommentScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+    let tokens: [Token]
     let location: Location
     
     static let typeIdentifier: String = "Comment"
@@ -12,6 +13,7 @@ struct CommentScannerElement: ScannerElementLineTokenInitializable, ScannerEleme
             return nil
         }
         
+        self.tokens = tokens
         location = Location(column: 1, line: firstToken.location.line)
         keywordIdentifier = ""
         text = tokens.value

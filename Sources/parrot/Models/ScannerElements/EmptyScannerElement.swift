@@ -1,6 +1,8 @@
 import Foundation
 
-struct EmptyScannerElement: ScannerElementDescriptor {
+struct EmptyScannerElement: ScannerElement, ScannerElementDescriptor {
+    let tokens: [Token] = []
+    
     static let typeIdentifier: String = "Empty"
     
     let location: Location

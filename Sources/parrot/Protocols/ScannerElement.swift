@@ -13,10 +13,9 @@ struct ScannerElementChildItem {
     }
 }
 
-protocol ScannerElementDescriptor {
+protocol ScannerElementDescriptor: Locatable {
     static var typeIdentifier: String { get }
     
-    var location: Location { get }
     var keywordIdentifier: String { get }
     var text: String { get }
     var items: [ScannerElementChildItem] { get }

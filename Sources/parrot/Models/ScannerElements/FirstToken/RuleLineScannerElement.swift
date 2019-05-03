@@ -1,6 +1,8 @@
 import Foundation
 
-struct RuleLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor, FirstLevelScannerElement {
+struct RuleLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+    var tokens: [Token]
+    
     let location: Location
     
     static let typeIdentifier: String = "RuleLine"
@@ -11,6 +13,8 @@ struct RuleLineScannerElement: ScannerElementLineTokenInitializable, ScannerElem
         guard let firstToken = tokens.first, firstToken.isRuleKeyword else {
             return nil
         }
+        
+        self.tokens = tokens
         
         location = firstToken.location
         keywordIdentifier = firstToken.value?.removingColon ?? ""

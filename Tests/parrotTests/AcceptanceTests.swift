@@ -6,14 +6,14 @@ import Foundation
 @objc public class AcceptanceTests: NSObject {
     
     var feature: TestFeature!
-    var parseResult: Result<String, Error>! {
+    var parseResult: Result<String, ParseError>! {
         didSet {
             guard let result = parseResult else {
                 return
             }
             switch result {
             case .failure(let error):
-                errors = (error as! CucumberScanner.ParseErrors).errors
+                errors = error.errors
             case .success(let parsed):
                 exportedTokens = parsed
             }
@@ -21,7 +21,7 @@ import Foundation
     }
     var exportedTokens: String!
     var error: Error!
-    var errors: [Error]!
+    var errors: [ExportableError]!
     var interpreter: CucumberInterpreter!
     var parsedFeature: ASTNode<Feature>!
     
@@ -77,7 +77,8 @@ import Foundation
     
     func thenErrorsAreSameAsJSONs() {
         XCTAssertNotNil(errors)
-        //XCTAssertFalse(errors.isEmpty, "Errors is empty")
+        XCTAssertFalse(errors.isEmpty, "Errors is empty")
+        XCTAssertEqual(feature.exportedErrors, errors)
     }
     
     func thenParsedFeatureIsNil() {

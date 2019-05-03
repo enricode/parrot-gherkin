@@ -33,6 +33,11 @@ class CucumberLexer: Lexer {
     private var docStringsLeadingOffset: DocStringOffset = .none
     
     let text: String
+    let featureFile: FeatureFile?
+    var uri: URL? {
+        return featureFile?.uri
+    }
+    
     private(set) var position: String.Index
     
     private var currentChar: LexerCharacter = .none
@@ -44,15 +49,19 @@ class CucumberLexer: Lexer {
         return .none
     }
     
-    convenience init(feature: FeatureFile) throws {
-        let text = try feature.contentOfFeature()
+    init(feature: FeatureFile) throws {
+        text = try feature.contentOfFeature()
+        position = text.startIndex
+        featureFile = feature
         
-        self.init(feature: text)
+        updateCurrentChar()
+        advanceCurrentLocation()
     }
     
     init(feature: String) {
         text = feature
         position = text.startIndex
+        featureFile = nil
 
         updateCurrentChar()
         advanceCurrentLocation()
@@ -271,7 +280,7 @@ class CucumberLexer: Lexer {
                     advance()
                     skip(characterSet: [.whitespace])
                     if location.line < currentLocation.line {
-                        return expression(value: nil, location: location.resettingColumn)
+                        return expression(value: nil, location: location.firstColumn)
                     }
                     location = currentLocation
                 }
@@ -289,10 +298,10 @@ class CucumberLexer: Lexer {
                 switch offset {
                 case .none:
                     currentContext = .docstring(offset: .offset(location.column), startedWith: start)
-                    return expression(value: value, location: location.resettingColumn)
+                    return expression(value: value, location: location.firstColumn)
                 case .offset(let offset):
                     let value = value.padded(leading: max(location.column - offset, 0))
-                    return expression(value: value, location: location.resettingColumn)
+                    return expression(value: value, location: location.firstColumn)
                 }
             }
             

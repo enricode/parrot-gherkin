@@ -2,6 +2,7 @@ import Foundation
 
 struct FeatureLineScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
     let location: Location
+    let tokens: [Token]
     
     static let typeIdentifier: String = "FeatureLine"
     let keywordIdentifier: String
@@ -12,6 +13,7 @@ struct FeatureLineScannerElement: ScannerElementLineTokenInitializable, ScannerE
             return nil
         }
         
+        self.tokens = tokens
         location = firstToken.location
         keywordIdentifier = firstToken.value?.removingColon ?? ""
         text = tokens.valueExcludingFirst

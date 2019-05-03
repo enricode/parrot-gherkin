@@ -1,6 +1,7 @@
 import Foundation
 
 struct DocStringSeparatorScannerElement: ScannerElementLineTokenInitializable, ScannerElementDescriptor {
+    let tokens: [Token]
     let location: Location
     
     static let typeIdentifier: String = "DocStringSeparator"
@@ -12,6 +13,7 @@ struct DocStringSeparatorScannerElement: ScannerElementLineTokenInitializable, S
             return nil
         }
         
+        self.tokens = tokens
         location = token.location
         keywordIdentifier = docString.keyword.rawValue
         text = docString.mark ?? ""

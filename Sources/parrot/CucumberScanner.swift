@@ -2,46 +2,45 @@ import Foundation
 
 class CucumberScanner: Scanner {
 
-    struct ParseErrors: Error {
-        private(set) var errors: [Error] = []
-        
-        mutating func add(error: Error) {
-            errors.append(error)
-        }
-        
-        var hasNoErrors: Bool {
-            return errors.isEmpty
-        }
-    }
-
     typealias TokensLine = [Token]
     typealias InitializableLine = ScannerElementDescriptor & ScannerElementLineTokenInitializable
     
     let lexer: Lexer
     private let scannerFSM = ScannerFSM()
-    private var parseErrors = ParseErrors()
+    private var parseError = ParseError()
 
     init(lexer: Lexer) {
         self.lexer = lexer
     }
     
-    func parseLines() -> Result<[Int: Scanner.Line], Error> {
+    func parseLines() -> Result<[Int: Scanner.Line], ParseError> {
         let tokens: [Token]
         do {
             tokens = try lexer.parse()
+        } catch LanguageDictionaryInitException.invalidLanguage(let language) {
+            let location = Location.start.firstColumn
+            parseError.add(error: ExportableError(
+                data: "\(location.prettyPrint): Language not supported: \(language)",
+                source: Source(location: location, uri: lexer.uri?.absoluteString ?? "")
+            ))
+            return Result.failure(parseError)
         } catch {
-            parseErrors.add(error: error)
-            return Result.failure(parseErrors)
+            print("Unhandled error: \(error)")
+            return Result.failure(parseError)
         }
 
         let rawLines = tokensSplitByLines(with: tokens)
         
-        let rows = rawLines
-            .compactMap { parseLine(with: $0) }
-            .map { ($0.location.line, $0) }
+        var scannerElements = rawLines.compactMap { parseLine(with: $0) }
+        if !(scannerElements.last is EOFScannerElement) {
+            scannerElements.append(EOFScannerElement(
+                location: scannerElements.last?.location.newLine ?? Location(column: 0, line: 1)
+            ))
+        }
+        let rows = scannerElements.map { ($0.location.line, $0) }
         
-        guard parseErrors.hasNoErrors else {
-            return Result.failure(parseErrors)
+        guard parseError.hasNoErrors else {
+            return Result.failure(parseError)
         }
         
         var dictionaryRows = Dictionary(uniqueKeysWithValues: rows)
@@ -91,8 +90,13 @@ class CucumberScanner: Scanner {
         if let element = scannerElement {
             do {
                 try scannerFSM.changeState(element: element as! ScannerElement)
+            } catch let error as ScannerError {
+                parseError.add(error: ExportableError(
+                    data: error.localizedDescription,
+                    source: Source(location: error.location, uri: lexer.uri?.absoluteString ?? "")
+                ))
             } catch {
-                parseErrors.add(error: error)
+                print("Unhandled error: \(error)")
             }
             return element
         } else {
@@ -117,21 +121,17 @@ class CucumberScanner: Scanner {
         }
     }
     
-    func stringLines() -> Result<String, Error> {
+    func stringLines() -> Result<String, ParseError> {
         do {
             let sortedLines = try parseLines().get().sorted { lineA, lineB in
                 lineA.key < lineB.key
             }
             
-            var lines = sortedLines.map({ $0.value.elementDescription })
-            
-            if lines.last != "EOF" {
-                lines.append("EOF")
-            }
+            let lines = sortedLines.map({ $0.value.elementDescription })
             
             return .success(lines.joined(separator: "\n") + "\n")
         } catch {
-            return .failure(parseErrors)
+            return .failure(parseError)
         }
     }
 
@@ -139,7 +139,7 @@ class CucumberScanner: Scanner {
 
 extension Dictionary where Key == Int, Value == Scanner.Line {
     
-    func convertEmptyToOtherIfPreviousWasOtherType() -> Result<[Int: Scanner.Line], Error> {
+    func convertEmptyToOtherIfPreviousWasOtherType() -> Result<[Int: Scanner.Line], ParseError> {
         var result = Dictionary<Int, Scanner.Line>()
         
         for (idx, line) in self where idx > 0 {

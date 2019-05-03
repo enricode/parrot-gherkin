@@ -54,7 +54,7 @@ extension Collection where Element == Token {
             var tokenDescription = ""
             
             if let first = first, first == token {
-                tokenDescription += token.lineNumber
+                tokenDescription += token.location.prettyPrint
                 tokenDescription += token.lineDescription + ":"
             }
             
@@ -67,10 +67,6 @@ extension Collection where Element == Token {
 }
 
 extension Token {
-    
-    fileprivate var lineNumber: String {
-        return "(\(location.line):\(location.column))"
-    }
     
     fileprivate var lineDescription: String {
         switch type {

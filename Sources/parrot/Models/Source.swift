@@ -1,6 +1,6 @@
 import Foundation
 
-struct Source {
+struct Source: Codable, Equatable {
     let location: Location
     let uri: String
 }
