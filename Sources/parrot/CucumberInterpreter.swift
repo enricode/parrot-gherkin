@@ -11,72 +11,74 @@ enum InterpreterException: ParrotError {
     case expectedDataTableToken
     
     case incorrectDataTable
+    
     case cannotParseFeature
+    case unexpectedEOF
+    case unexpectedLine(ScannerElementDescriptor)
 }
 
 class CucumberInterpreter: Interpreter {    
     
     let scanner: Scanner
     
-    private var currentToken: Token
+    private let lines: [ScannerElementDescriptor]
+    private var lineRepository: IndexingIterator<[ScannerElementDescriptor]>
+    private var currentLine: ScannerElementDescriptor
     private var tagsBuffer: [ASTNode<Tag>] = []
-    private(set) var commentsTokens: [Token] = []
+    private(set) var commentsLine : [CommentScannerElement] = []
     
     init(scanner: Scanner) throws {
         self.scanner = scanner
-        currentToken = Token(.expression, .start)
-        //currentToken = try lexer.getNextToken()
+        
+        lines = try scanner.parseLines()
+            .get()
+            .lazy
+            .sorted(by: { e1, e2 in e1.key < e2.key })
+            .compactMap { $0.value }
+
+        lineRepository = lines.makeIterator()
+        currentLine = try lineRepository.next() ?! InterpreterException.cannotParseFeature
     }
     
     func parse() throws -> ASTNode<Feature>? {
-        //let parsedFeature = try feature()
-        
-        /*if let feature = parsedFeature {
-            let validFeature = try FeatureValidator(mode: mode).validate(object: feature.element)
-            
-            guard validFeature else {
-                throw InterpreterException.cannotParseFeature
-            }
-        }*/
-        
-        //return parsedFeature
-        return nil
+        return try feature()
     }
-    /*
-    private func eat() throws {
+    
+    private func consume() {
         repeat {
-            currentToken = try lexer.getNextToken()
-
-            if currentToken.isComment {
-                commentsTokens.append(currentToken)
-                try eat()
+            guard !currentLine.isOf(type: .eof) else {
+                return
             }
-        } while currentToken.isComment
+            if let comment = currentLine as? CommentScannerElement {
+                commentsLine.append(comment)
+            }
+        
+            currentLine = lineRepository.next()!
+        } while currentLine is CommentScannerElement
     }
     
     // tags -> FEATURE: -> title_description -> scenarios -> EOF
     private func feature() throws -> ASTNode<Feature>? {
-        let tagList = try tags()
+        let tagList = tags()
         
-        guard currentToken.isFeatureKeyword else {
-            if currentToken == .eof {
+        guard currentLine.isOf(type: .feature) else {
+            if currentLine.isOf(type: .eof) {
                 return nil
             }
-            if commentsTokens.isEmpty && !currentToken.isComment {
+            if commentsLine.isEmpty && !(currentLine is CommentScannerElement) {
                 throw InterpreterException.cannotParseFeature
             }
             return nil
         }
         
-        let featureLocation = currentToken.location
-        try eat() // Feature token
-        
+        let featureLocation = currentLine.location
+
         let titleDesc = try titleDescription()
         let scenarioList = try scenarios()
         let ruleList = try rules()
         
-        guard currentToken.isEOF else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: .eof)
+        guard currentLine.isOf(type: .eof) else {
+            throw InterpreterException.unexpectedEOF
         }
         
         return ASTNode(
@@ -91,57 +93,38 @@ class CucumberInterpreter: Interpreter {
         )
     }
     
+    
     private func sentences() throws -> String? {
-        guard currentToken.isExpression else {
-            return nil
-        }
-        
         var content = ""
         
-        while currentToken.isExpression {
-            content.append((currentToken.value ?? "") + " ")
-            try eat()
+        while currentLine.isOf(type: .other) {
+            content.append(currentLine.text)
+            consume()
         }
-        
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    private func sentence() throws -> String? {
-        guard currentToken.isExpression, let value = currentToken.value else {
-            return nil
-        }
-        
-        try eat()
-        
-        return value
+
+        return content.trimmed
     }
     
     private func titleDescription() throws -> (title: String?, description: String?) {
-        let title = try sentence()
+        let title = currentLine.text
         
-        if currentToken.isStepKeyword {
+        if currentLine.isOf(type: .step) {
             return (title: title, description: nil)
         } else {
+            consume()
             return (title: title, description: try sentences())
         }
     }
     
     // @tag*
-    private func tags() throws -> [ASTNode<Tag>] {
+    private func tags() -> [ASTNode<Tag>] {
         var tagsList: [ASTNode<Tag>] = []
         
-        while true {
-            if
-                case .keyword(let keyword) = currentToken.type,
-                let secondaryKey = keyword as? SecondaryKeyword,
-                case .tag(let name) = secondaryKey
-            {
-                let node = ASTNode(Tag(tag: name), location: currentToken.location)
-                tagsList.append(node)
-            } else {
-                return tagsList
-            }
-            try eat()
+        while let tagElement = currentLine as? TagLineScannerElement {
+            tagsList.append(contentsOf: tagElement.items.map {
+                ASTNode(Tag(tag: $0.value), location: $0.location)
+            })
+            consume()
         }
         
         return tagsList
@@ -169,13 +152,11 @@ class CucumberInterpreter: Interpreter {
     }
     
     private func rule() throws -> ASTNode<Rule>? {
-        guard currentToken.isRuleKeyword else {
+        guard currentLine.isOf(type: .rule) else {
             return nil
         }
         
-        let location = currentToken.location
-        try eat()
-        
+        let location = currentLine.location
         let titleDesc = try titleDescription()
         
         return ASTNode(Rule(
@@ -190,28 +171,23 @@ class CucumberInterpreter: Interpreter {
         // tags
         let tagList: [ASTNode<Tag>]
         if tagsBuffer.isEmpty {
-            tagList = try tags()
+            tagList = tags()
         } else {
             tagList = tagsBuffer
             tagsBuffer.removeAll()
         }
         
         // SCENARIO KEY
-        guard currentToken.isScenarioKeyword else {
+        guard currentLine.isOf(type: .scenario) || currentLine.isOf(type: .background) else {
             if tagList.isEmpty {
                 return nil
             }
             
-            throw InterpreterException.unexpectedTerm(
-                term: currentToken.type,
-                expected: .keyword(PrimaryKeyword.scenario) // "Scenario:, Example:, Scenario Outline:, Scenario Template:"
-            )
+            throw InterpreterException.unexpectedLine(currentLine)
         }
         
-        let location = currentToken.location
-        let isOutline = currentToken.isScenarioOutlineKeyword
-
-        try eat() // scenario key
+        let location = currentLine.location
+        let isOutline = currentLine.isScenarioOutline
         
         // title_description
         let titleDesc = try titleDescription()
@@ -232,10 +208,10 @@ class CucumberInterpreter: Interpreter {
     private func outline() throws -> [ASTNode<ExamplesTable>] {
         var exampleTables: [ASTNode<ExamplesTable>] = []
         
-        while currentToken.isTagToken || currentToken.isExamplesToken {
-            let tagList = try tags()
+        while currentLine.isOf(type: .tag) || currentLine.isOf(type: .examples) {
+            let tagList = tags()
             
-            if currentToken.isScenarioKeyword {
+            if currentLine.isOf(type: .scenario) {
                 tagsBuffer = tagList
                 break
             }
@@ -243,6 +219,8 @@ class CucumberInterpreter: Interpreter {
             if let exampleTable = try examples(tags: tagList) {
                 exampleTables.append(exampleTable)
             }
+            
+            consume()
         }
         
         return exampleTables
@@ -251,13 +229,11 @@ class CucumberInterpreter: Interpreter {
     // Examples: -> title* -> columns_title -> data_table ->
     private func examples(tags: [ASTNode<Tag>]) throws -> ASTNode<ExamplesTable>? {
         // Examples:
-        guard currentToken.isExamplesToken else {
+        guard currentLine.isOf(type: .examples) else {
             return nil
         }
         
-        try eat()
-        
-        let location = currentToken.location
+        let location = currentLine.location
         let titleDesc = try titleDescription()
         
         let examplesTable = try ExamplesTable(
@@ -272,97 +248,63 @@ class CucumberInterpreter: Interpreter {
     
     // PIPE -> (expression -> PIPE)* ->
     private func dataTable() throws -> ASTNode<DataTable>? {
-        guard currentToken.isPipeKeyword else {
+        guard currentLine.isOf(type: .tableRow) else {
             return nil
         }
         
         var rows: [ASTNode<DataTable.Row>] = []
-        let location = currentToken.location
         
-        // pipe
-        try eat()
+        let location = currentLine.location
         
-        while currentToken.isPipeKeyword || currentToken.isExpression {
-            let initialLocation = currentToken.location
-            var cells: [ASTNode<DataTable.Cell>] = []
-            
-            while currentToken.location.line == initialLocation.line && !currentToken.isEOF {
-                if currentToken.type == .expression {
-                    let location = currentToken.location
-                    try eat()
-                    
-                    guard currentToken.isPipeKeyword else {
-                        throw InterpreterException.expectedDataTableToken
-                    }
-                    
-                    let node = ASTNode(
-                        DataTable.Cell.value(currentToken.value ?? ""),
-                        location: location
-                    )
-                    cells.append(node)
-                } else if currentToken.isPipeKeyword {
-                    cells.append(ASTNode(DataTable.Cell.empty, location: currentToken.location))
-                } else if currentToken.isEOF {
-                    break
-                } else {
-                    throw InterpreterException.expectedDataTableToken
-                }
-                
-                try eat() // pipe
+        while let tableRow = currentLine as? TableRowScannerElement {
+            let location = tableRow.location
+            let cells = tableRow.items.map {
+                ASTNode(DataTable.Cell.value($0.value), location: $0.location)
             }
             
-            if currentToken.location.line != initialLocation.line && currentToken.isPipeKeyword {
-                try eat()
-            }
-            
-            rows.append(ASTNode(DataTable.Row(cells: cells), location: initialLocation))
+            rows.append(ASTNode(DataTable.Row(cells: cells), location: location))
+            consume()
         }
         
         let dataTable = try DataTable(rows: rows)
-        
+
         return ASTNode(dataTable, location: location)
     }
     
     private func docString() throws -> ASTNode<DocString>? {
-        guard case .keyword(let docStringToken) = currentToken.type, let docStringKeyword = docStringToken as? DocStringKeyword else {
+        guard let docStringLine = currentLine as? DocStringSeparatorScannerElement else {
             return nil
         }
         
-        let initialLocation = currentToken.location
-        try eat()
+        let location = docStringLine.location
+        let mark = docStringLine.mark
+        consume()
         
         var content = ""
         
-        while currentToken.isExpression || !currentToken.isDocStringOf(type: docStringKeyword.keyword) {
-            if currentToken.isExpression {
-                let leadingWhitespaces = max(currentToken.location.column - initialLocation.column, 0)
-                content += repeatElement(" ", count: leadingWhitespaces) + (currentToken.value ?? "")
-            } else if currentToken.isDocStringKeyword, let additionalContent = currentToken.value {
-                content += additionalContent
-            }
-            
-            try eat()
+        while currentLine.isOf(type: .other) {
+            content += currentLine.text
+            consume()
         }
         
-        guard currentToken.isDocStringKeyword else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: .keyword(docStringKeyword))
+        guard currentLine.isOf(type: .docString) else {
+            throw InterpreterException.unexpectedLine(currentLine)
         }
-        
-        try eat()
+        consume()
         
         let docString = DocString(
-            mark: docStringKeyword.mark,
+            mark: mark,
             content: content,
-            delimiter: docStringKeyword.keyword
+            delimiter: docStringLine.delimiter
         )
         
-        return ASTNode(docString, location: initialLocation)
+        return ASTNode(docString, location: location)
     }
     
     private func steps() throws -> [ASTNode<Step>] {
         var stepList: [ASTNode<Step>] = []
         
-        while currentToken.isStepKeyword {
+        while currentLine.isOf(type: .step) {
             stepList.append(try step())
         }
         
@@ -371,21 +313,29 @@ class CucumberInterpreter: Interpreter {
     
     // STEPKEYWORD -> step_text -> (data_table | doc_string)* ->
     private func step() throws -> ASTNode<Step> {
-        guard case .keyword(let stepToken) = currentToken.type, let stepKeyword = stepToken as? StepKeyword else {
-            throw InterpreterException.unexpectedTerm(term: currentToken.type, expected: .keyword(StepKeyword.given))
+        guard let stepLine = currentLine as? StepLineScannerElement else {
+            throw InterpreterException.unexpectedLine(currentLine)
         }
         
-        let stepLocation = currentToken.location
-        try eat() // keyword
+        let step = try Step(
+            keyword: stepLine.keyword,
+            text: stepLine.text,
+            docString: try docString(),
+            dataTable: try dataTable()
+        )
         
-        guard let text = try sentence() else {
-            throw InterpreterException.textExpectedNothingFound
-        }
-        
-        let step = try Step(keyword: stepKeyword, text: text, docString: try docString(), dataTable: try dataTable())
-        
-        return ASTNode(step, location: stepLocation)
+        return ASTNode(step, location: stepLine.location)
     }
-     */
 
+}
+
+extension ScannerElementDescriptor {
+    
+    var isScenarioOutline: Bool {
+        guard let scenario = self as? ScenarioLineScannerElement else {
+            return false
+        }
+        return scenario.tokens.first?.isScenarioOutlineKeyword ?? false
+    }
+    
 }
