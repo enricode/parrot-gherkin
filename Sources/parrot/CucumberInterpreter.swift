@@ -1,17 +1,6 @@
 import Foundation
 
 enum InterpreterException: ParrotError {
-    case unexpectedTerm(term: TokenType, expected: TokenType)
-    case titleExpectedNothingFound
-    case textExpectedNothingFound
-    case scenarioOutlineWithoutExamples
-    case unexpectedTitleDescriptionFactor
-    case exampleTableWithoutTitle
-    case exampleTableWithoutRows
-    case expectedDataTableToken
-    
-    case incorrectDataTable
-    
     case cannotParseFeature
     case unexpectedEOF
     case unexpectedLine(ScannerElementDescriptor)
@@ -34,6 +23,7 @@ class CucumberInterpreter: Interpreter {
             .get()
             .lazy
             .sorted(by: { e1, e2 in e1.key < e2.key })
+            .filter({ !($0.value is EmptyScannerElement) })
             .compactMap { $0.value }
 
         lineRepository = lines.makeIterator()
@@ -61,6 +51,14 @@ class CucumberInterpreter: Interpreter {
     private func feature() throws -> ASTNode<Feature>? {
         let tagList = tags()
         
+        let language: String
+        if let languageLine = currentLine as? LanguageScannerElement {
+            language = languageLine.text
+            consume()
+        } else {
+            language = "en"
+        }
+        
         guard currentLine.isOf(type: .feature) else {
             if currentLine.isOf(type: .eof) {
                 return nil
@@ -73,7 +71,7 @@ class CucumberInterpreter: Interpreter {
         
         let featureLocation = currentLine.location
 
-        let titleDesc = try titleDescription()
+        let titleDesc = titleDescription()
         let scenarioList = try scenarios()
         let ruleList = try rules()
         
@@ -83,6 +81,7 @@ class CucumberInterpreter: Interpreter {
         
         return ASTNode(
             Feature(
+                language: language,
                 tags: tagList,
                 title: titleDesc.title,
                 description: titleDesc.description,
@@ -94,7 +93,7 @@ class CucumberInterpreter: Interpreter {
     }
     
     
-    private func sentences() throws -> String? {
+    private func sentences() -> String? {
         var content = ""
         
         while currentLine.isOf(type: .other) {
@@ -105,14 +104,14 @@ class CucumberInterpreter: Interpreter {
         return content.trimmed
     }
     
-    private func titleDescription() throws -> (title: String?, description: String?) {
+    private func titleDescription() -> (title: String?, description: String?) {
         let title = currentLine.text
         
         if currentLine.isOf(type: .step) {
             return (title: title, description: nil)
         } else {
             consume()
-            return (title: title, description: try sentences())
+            return (title: title, description: sentences())
         }
     }
     
@@ -157,7 +156,7 @@ class CucumberInterpreter: Interpreter {
         }
         
         let location = currentLine.location
-        let titleDesc = try titleDescription()
+        let titleDesc = titleDescription()
         
         return ASTNode(Rule(
             title: titleDesc.title,
@@ -190,7 +189,7 @@ class CucumberInterpreter: Interpreter {
         let isOutline = currentLine.isScenarioOutline
         
         // title_description
-        let titleDesc = try titleDescription()
+        let titleDesc = titleDescription()
 
         let scenario = Scenario(
             tags: tagList,
@@ -234,13 +233,14 @@ class CucumberInterpreter: Interpreter {
         }
         
         let location = currentLine.location
-        let titleDesc = try titleDescription()
+        let titleDesc = titleDescription()
+        let table = try dataTable()
         
-        let examplesTable = try ExamplesTable(
+        let examplesTable = ExamplesTable(
             title: titleDesc.title,
             description: titleDesc.description,
             tags: tags,
-            dataTable: try dataTable()
+            dataTable: table
         )
         
         return ASTNode(examplesTable, location: location)
@@ -316,6 +316,8 @@ class CucumberInterpreter: Interpreter {
         guard let stepLine = currentLine as? StepLineScannerElement else {
             throw InterpreterException.unexpectedLine(currentLine)
         }
+        
+        consume()
         
         let step = try Step(
             keyword: stepLine.keyword,

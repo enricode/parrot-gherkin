@@ -31,17 +31,16 @@ import Foundation
         thenExportedTokensAreVoid()
         thenErrorsAreSameAsJSONs()
         
-        /*whenInterpreting()
-        thenErrorsAreSameAsJSONs()
-        thenParsedFeatureIsNil()*/
+        whenInterpreting()
+        thenParsedFeatureIsNil()
     }
     
     @objc public func parseGood(feature: String) {
         given(file: feature)
         whenExportingLexes()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
-        /*whenInterpreting()
-        thenFeatureASTSAreTheSameAsInCorrispondingFile()*/
+        whenInterpreting()
+        thenFeatureASTIsSameAsJSON()
     }
     
     func given(file: String) {
@@ -50,8 +49,8 @@ import Foundation
     
     func whenInterpreting() {
         do {
-            /*interpreter = try CucumberInterpreter(lexer: CucumberLexer(feature: feature.content))
-            parsedFeature = try interpreter.parse()*/
+            interpreter = try CucumberInterpreter(scanner: CucumberScanner(lexer: CucumberLexer(feature: feature.content)))
+            parsedFeature = try interpreter.parse()
         } catch {
             self.error = error
             print("Exception while interpreting: \(error)")
@@ -71,7 +70,7 @@ import Foundation
         XCTAssertEqual(feature.tokens, exportedTokens, comparedStrings(stringA: feature.tokens, stringB: exportedTokens))
     }
     
-    func thenFeatureASTSAreTheSameAsInCorrispondingFile() {
+    func thenFeatureASTIsSameAsJSON() {
         XCTAssertNil(error)
     }
     
