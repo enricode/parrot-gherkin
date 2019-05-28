@@ -1,6 +1,7 @@
 import Foundation
 
-struct Location: Equatable, Codable {
+struct Location: Equatable, Codable, AST {
+    
     let column: Int
     let line: Int
     
@@ -49,4 +50,7 @@ struct Location: Equatable, Codable {
         column = try container.decodeIfPresent(Int.self, forKey: .column) ?? 0
     }
 
+    func export() -> [String : Any] {
+        return ["column": column, "line": line]
+    }
 }

@@ -5,15 +5,30 @@ enum DataTableInitializationException: ParrotError {
     case unmatchingCellsCount(row: Int)
 }
 
-struct DataTable: AST, Equatable {
+public struct DataTable: AST, Equatable {
     
     enum Cell: AST, Equatable {
         case empty
         case value(String)
+        
+        var stringValue: String {
+            switch self {
+            case .empty: return ""
+            case .value(let value): return value
+            }
+        }
+        
+        func export() -> [String : Any] {
+            return ["value": stringValue]
+        }
     }
     
     struct Row: AST, Equatable {
         let cells: [ASTNode<Cell>]
+        
+        func export() -> [String : Any] {
+            return ["cells": cells.export()]
+        }
     }
     
     let rows: [ASTNode<Row>]
@@ -41,4 +56,9 @@ struct DataTable: AST, Equatable {
         
         self.rows = rows
     }
+    
+    public func export() -> [String: Any] {
+        return ["rows": rows.export()]
+    }
+    
 }

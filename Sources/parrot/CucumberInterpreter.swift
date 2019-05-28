@@ -70,6 +70,7 @@ class CucumberInterpreter: Interpreter {
         }
         
         let featureLocation = currentLine.location
+        let keyword = currentLine.keywordIdentifier
 
         let titleDesc = titleDescription()
         let scenarioList = try scenarios()
@@ -83,6 +84,7 @@ class CucumberInterpreter: Interpreter {
             Feature(
                 language: language,
                 tags: tagList,
+                keyword: keyword,
                 title: titleDesc.title,
                 description: titleDesc.description,
                 scenarios: scenarioList,
@@ -187,12 +189,14 @@ class CucumberInterpreter: Interpreter {
         
         let location = currentLine.location
         let isOutline = currentLine.isScenarioOutline
+        let keyword = currentLine.keywordIdentifier
         
         // title_description
         let titleDesc = titleDescription()
 
         let scenario = Scenario(
             tags: tagList,
+            keyword: keyword,
             title: titleDesc.title,
             description: titleDesc.description,
             steps: try steps(),
@@ -233,10 +237,13 @@ class CucumberInterpreter: Interpreter {
         }
         
         let location = currentLine.location
+        let keyword = currentLine.keywordIdentifier
+        
         let titleDesc = titleDescription()
         let table = try dataTable()
         
         let examplesTable = ExamplesTable(
+            keyword: keyword,
             title: titleDesc.title,
             description: titleDesc.description,
             tags: tags,
@@ -319,8 +326,10 @@ class CucumberInterpreter: Interpreter {
         
         consume()
         
+        let keyword = Step.Keyword(keyword: stepLine.keywordIdentifier, type: stepLine.keyword)
+        
         let step = try Step(
-            keyword: stepLine.keyword,
+            keyword: keyword,
             text: stepLine.text,
             docString: try docString(),
             dataTable: try dataTable()

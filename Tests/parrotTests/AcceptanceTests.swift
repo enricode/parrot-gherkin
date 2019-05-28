@@ -40,6 +40,7 @@ import Foundation
         whenExportingLexes()
         thenFeatureTokensAreTheSameAsInCorrispondingFile()
         whenInterpreting()
+        thenThereAreNoErrors()
         thenFeatureASTIsSameAsJSON()
     }
     
@@ -70,17 +71,21 @@ import Foundation
         XCTAssertEqual(feature.tokens, exportedTokens, comparedStrings(stringA: feature.tokens, stringB: exportedTokens))
     }
     
-    func thenFeatureASTIsSameAsJSON() {
-        XCTAssertNil(error)
-    }
-    
     func thenErrorsAreSameAsJSONs() {
         XCTAssertNotNil(errors)
         XCTAssertFalse(errors.isEmpty, "Errors is empty")
         XCTAssertEqual(feature.exportedErrors, errors)
     }
     
+    func thenThereAreNoErrors() {
+        XCTAssertNil(errors)
+    }
+    
     func thenParsedFeatureIsNil() {
+        XCTAssertNil(feature)
+    }
+    
+    func thenFeatureASTIsSameAsJSON() {
         
     }
     

@@ -1,5 +1,9 @@
 import Foundation
 
-struct Tag: AST, Equatable {
+public struct Tag: AST, Equatable {
     let tag: String
+    
+    public func export() -> [String : Any] {
+        return ["name": tag]
+    }
 }

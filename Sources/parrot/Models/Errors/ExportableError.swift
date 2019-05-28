@@ -1,6 +1,6 @@
 import Foundation
 
-struct ExportableError: Error, Exportable, Codable, Equatable {
+struct ExportableError: Error, Sourceable, Codable, Equatable {
     var data: String
     var source: Source
     

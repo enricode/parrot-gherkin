@@ -1,11 +1,23 @@
 import Foundation
 
-struct ASTNode<T: AST & Equatable>: Equatable {
-    let element: T
+public struct ASTNode<ASTElement: AST & Equatable>: Equatable {
+    let element: ASTElement
     let location: Location
     
-    init(_ element: T, location: Location) {
+    init(_ element: ASTElement, location: Location) {
         self.element = element
         self.location = location
     }
+    
+}
+
+extension ASTNode: Exportable {
+    
+    public func export() -> [String: Any] {
+        var data = element.export()
+        data["location"] = location.export()
+        
+        return data
+    }
+    
 }
