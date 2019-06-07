@@ -1,6 +1,6 @@
 import Foundation
 
-enum StepKeyword: String, GherkinKeyword, KeywordLocalizable, CaseIterable, Equatable {
+enum StepKeyword: String, Keyword, GherkinKeyword, KeywordLocalizable, CaseIterable, Equatable {
     case given
     case when
     case then

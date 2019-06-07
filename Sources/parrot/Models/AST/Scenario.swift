@@ -8,8 +8,14 @@ public enum ScenarioInitializationException: String, ParrotError {
 }
 
 public struct Scenario: AST, Equatable {
+    
+    enum KeywordType: String, Keyword, Equatable {
+        case scenario
+        case background
+    }
+    
     let tags: [ASTNode<Tag>]
-    let keyword: String
+    let keyword: KeywordPair<KeywordType>
     let title: String?
     let description: String?
     let steps: [ASTNode<Step>]
@@ -18,10 +24,10 @@ public struct Scenario: AST, Equatable {
     
     public func export() -> [String : Any] {
         var scenario: [String : Any] = [
-            "keyword": keyword
+            "keyword": keyword.keyword
         ]
         
-        if let title = title {
+        if let title = title, !title.isEmpty {
             scenario["name"] = title
         }
         
@@ -29,7 +35,7 @@ public struct Scenario: AST, Equatable {
             scenario["tags"] = tags.export()
         }
         
-        if let description = description {
+        if let description = description, !description.isEmpty {
             scenario["description"] = description
         }
         

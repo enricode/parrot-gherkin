@@ -144,7 +144,7 @@ extension Collection where Element == Token {
             
             switch (lastToken.isPipeKeyword, token.isPipeKeyword) {
             case (true, true):
-                return tokens + [Token(.expression, lastToken.location.advance())]
+                return tokens + [Token(.expression, lastToken.location.advance()), token]
             case (true, false), (false, true):
                 return tokens + [token]
             case (false, false):

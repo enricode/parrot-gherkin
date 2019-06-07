@@ -16,6 +16,26 @@ struct TestFeature {
         return content(of: path + ".errors.ndjson")
     }
     
+    var ast: String {
+        return content(of: path + ".ast.ndjson")
+    }
+    
+    var astFeature: [String: Any] {
+        guard
+            let dictionary = ast.dictionaryObject,
+            let gherkinDocument = dictionary["gherkinDocument"] as? [String: Any]
+        else {
+            XCTFail("Cannot read AST file")
+            return [:]
+        }
+        
+        guard let feature = gherkinDocument["feature"] as? [String: Any] else {
+            return [:]
+        }
+        
+        return feature
+    }
+    
     var exportedErrors: [ExportableError] {
         let errorComponents = errors.components(separatedBy: "\n")
         
@@ -24,17 +44,12 @@ struct TestFeature {
                 return nil
             }
             
-            guard let data = component.data(using: .utf8) else {
-                XCTFail("Cannot read data from feature error file '\(path)'")
-                return nil
-            }
-            
-            guard let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+            guard let jsonObject = component.dictionaryObject else {
                 XCTFail("Cannot convert error data from feature error file '\(path)'")
                 return nil
             }
             
-            guard let attachmentDict = jsonObject?["attachment"] as? [String: Any] else {
+            guard let attachmentDict = jsonObject["attachment"] as? [String: Any] else {
                 XCTFail("Error format 'attachment' key not found")
                 return nil
             }
@@ -61,3 +76,21 @@ struct TestFeature {
     }
 }
 
+extension String {
+    
+    fileprivate var dictionaryObject: [String: Any]? {
+        guard let data = data(using: .utf8) else {
+            return nil
+        }
+        
+        do {
+            guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+                return nil
+            }
+            return jsonObject
+        } catch {
+            return nil
+        }
+    }
+    
+}

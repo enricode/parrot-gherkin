@@ -19,17 +19,25 @@ public struct Feature: AST, Equatable {
 extension Feature {
     
     public func export() -> [String : Any] {
+        let children: [[String: Any]] = scenarios.map { scenario in
+            let info = scenario.export()
+            return [scenario.element.keyword.type.rawValue: info]
+        }
+        
         var feature: [String : Any] = [
-            "children": scenarios.export(),
             "keyword": keyword,
             "language": language
         ]
         
-        if let title = title {
+        if !children.isEmpty {
+            feature["children"] = children
+        }
+        
+        if let title = title, !title.isEmpty {
             feature["name"] = title
         }
         
-        if let description = description {
+        if let description = description, !description.isEmpty {
             feature["description"] = description
         }
         

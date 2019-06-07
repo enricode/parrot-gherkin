@@ -7,18 +7,13 @@ public enum StepInitializationException: String, ParrotError {
 
 public struct Step: AST, Equatable {
     
-    struct Keyword: Equatable {
-        let keyword: String
-        let type: StepKeyword
-    }
-    
-    let keyword: Keyword
+    let keyword: KeywordPair<StepKeyword>
     let text: String
     
     let docString: ASTNode<DocString>?
     let dataTable: ASTNode<DataTable>?
     
-    init(keyword: Keyword, text: String, docString: ASTNode<DocString>?, dataTable: ASTNode<DataTable>?) throws {
+    init(keyword: KeywordPair<StepKeyword>, text: String, docString: ASTNode<DocString>?, dataTable: ASTNode<DataTable>?) throws {
         if text.trimmingCharacters(in: .whitespaces).isEmpty {
             throw StepInitializationException.emptyStepText
         }

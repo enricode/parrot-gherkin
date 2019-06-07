@@ -11,6 +11,7 @@ class CucumberInterpreter: Interpreter {
     let scanner: Scanner
     
     private let lines: [ScannerElementDescriptor]
+    private let comments: [CommentScannerElement]
     private var lineRepository: IndexingIterator<[ScannerElementDescriptor]>
     private var currentLine: ScannerElementDescriptor
     private var tagsBuffer: [ASTNode<Tag>] = []
@@ -19,11 +20,13 @@ class CucumberInterpreter: Interpreter {
     init(scanner: Scanner) throws {
         self.scanner = scanner
         
-        lines = try scanner.parseLines()
-            .get()
-            .lazy
+        let parsedLines = try scanner.parseLines().get()
+        
+        comments = parsedLines.compactMap { $0.value as? CommentScannerElement }
+        
+        lines = parsedLines
             .sorted(by: { e1, e2 in e1.key < e2.key })
-            .filter({ !($0.value is EmptyScannerElement) })
+            .filter({ !($0.value is EmptyScannerElement) && !($0.value is CommentScannerElement) })
             .compactMap { $0.value }
 
         lineRepository = lines.makeIterator()
@@ -173,6 +176,7 @@ class CucumberInterpreter: Interpreter {
         let tagList: [ASTNode<Tag>]
         if tagsBuffer.isEmpty {
             tagList = tags()
+            tagsBuffer = tagList
         } else {
             tagList = tagsBuffer
             tagsBuffer.removeAll()
@@ -189,7 +193,10 @@ class CucumberInterpreter: Interpreter {
         
         let location = currentLine.location
         let isOutline = currentLine.isScenarioOutline
-        let keyword = currentLine.keywordIdentifier
+        let keyword = KeywordPair(
+            keyword: currentLine.keywordIdentifier,
+            type: currentLine.isOf(type: .scenario) ? Scenario.KeywordType.scenario : .background
+        )
         
         // title_description
         let titleDesc = titleDescription()
@@ -222,8 +229,6 @@ class CucumberInterpreter: Interpreter {
             if let exampleTable = try examples(tags: tagList) {
                 exampleTables.append(exampleTable)
             }
-            
-            consume()
         }
         
         return exampleTables
@@ -290,6 +295,9 @@ class CucumberInterpreter: Interpreter {
         var content = ""
         
         while currentLine.isOf(type: .other) {
+            if !content.isEmpty {
+                content += "\n"
+            }
             content += currentLine.text
             consume()
         }
@@ -326,7 +334,10 @@ class CucumberInterpreter: Interpreter {
         
         consume()
         
-        let keyword = Step.Keyword(keyword: stepLine.keywordIdentifier, type: stepLine.keyword)
+        let keyword = KeywordPair(
+            keyword: stepLine.keywordIdentifier,
+            type: stepLine.keyword
+        )
         
         let step = try Step(
             keyword: keyword,

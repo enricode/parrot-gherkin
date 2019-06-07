@@ -30,6 +30,10 @@ public struct ExamplesTable: AST, Equatable {
             }
         }
         
+        if !tags.isEmpty {
+            examples["tags"] = tags.export()
+        }
+        
         return examples
     }
 }
@@ -37,10 +41,10 @@ public struct ExamplesTable: AST, Equatable {
 extension ASTNode where ASTElement == DataTable {
     
     fileprivate func exportHeader() -> [String: Any] {
-        return [
-            "location": location.export(),
-            "cells": element.header.export()
-        ]
+        var header = element.header.export()
+        header["location"] = location.export()
+        
+        return header
     }
     
     fileprivate func exportBody() -> [[String: Any]] {

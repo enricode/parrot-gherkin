@@ -10,11 +10,11 @@ public struct Rule: AST, Equatable {
             "children": scenarios.export()
         ]
         
-        if let title = title {
+        if let title = title, !title.isEmpty {
             rule["title"] = title
         }
         
-        if let description = description {
+        if let description = description, !description.isEmpty {
             rule["description"] = description
         }
         

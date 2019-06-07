@@ -86,7 +86,32 @@ import Foundation
     }
     
     func thenFeatureASTIsSameAsJSON() {
+        // Remove me
+        guard parsedFeature != nil else {
+            return
+        }
         
+        let astFeature = feature.astFeature
+        let exported = parsedFeature.export()
+        
+        do {
+            let dataAst = try JSONSerialization.data(withJSONObject: astFeature, options: [])
+            let dataexported = try JSONSerialization.data(withJSONObject: exported, options: [])
+            
+            XCTAssert((astFeature as NSDictionary).isEqual(to: exported as NSDictionary), """
+                JSONs are not equal:
+                
+                EXPORTED:
+                
+                \(String(data: dataAst, encoding: .utf8)!)
+                
+                ACTUAL:
+                
+                \(String(data: dataexported, encoding: .utf8)!)
+                """)
+        } catch {
+            XCTFail("Cannot read JSON format")
+        }
     }
     
     func comparedStrings(stringA: String, stringB: String) -> String {

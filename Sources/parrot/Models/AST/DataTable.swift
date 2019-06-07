@@ -19,7 +19,11 @@ public struct DataTable: AST, Equatable {
         }
         
         func export() -> [String : Any] {
-            return ["value": stringValue]
+            if stringValue.isEmpty {
+                return [:]
+            } else {
+                return ["value": stringValue]
+            }
         }
     }
     
@@ -42,7 +46,7 @@ public struct DataTable: AST, Equatable {
             return []
         }
         
-        return rows[1...rows.count]
+        return rows[1...rows.count-1]
     }
     
     init(rows: [ASTNode<Row>]) throws {
