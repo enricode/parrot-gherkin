@@ -1,28 +1,15 @@
-# parrot
+# parrot-gherkin
 
 [![CI Status](https://img.shields.io/travis/flenrico/parrot.svg?style=flat)](https://travis-ci.org/flenrico/parrot)
 [![Version](https://img.shields.io/cocoapods/v/parrot.svg?style=flat)](https://cocoapods.org/pods/parrot)
 [![License](https://img.shields.io/cocoapods/l/parrot.svg?style=flat)](https://cocoapods.org/pods/parrot)
 [![Platform](https://img.shields.io/cocoapods/p/parrot.svg?style=flat)](https://cocoapods.org/pods/parrot)
 
-## Example
+# This sofware is under development. Do not use it.
 
-To run the example project, clone the repo, and run `pod install` from the Example directory first.
+## Description
 
-## Requirements
-
-## Installation
-
-parrot is available through [CocoaPods](https://cocoapods.org). To install
-it, simply add the following line to your Podfile:
-
-```ruby
-pod 'parrot'
-```
-
-## Author
-
-flenrico, enrico.franzelli@gmail.com
+`parrot-gherkin` is a package aimed to parse Gherkin files written in Swift. Its goal is to enter the [Cucumber](https://cucumber.io)'s parsing systems family.
 
 ## License
 
